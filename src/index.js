@@ -8,19 +8,28 @@ try {
 
   // Get current context
   const { owner, repo } = github.context.repo;
-  const linkedPRs = await octokit.rest.repos.listPullRequestsAssociatedWithCommit({
-    owner,
-    repo,
-    commit_sha: github.context.sha,
-  });
-
-  const outputValue = "test output";
-  core.setOutput("test", outputValue);
-  core.setOutput("linked-prs", linkedPRs.data);
   
-  const payload = JSON.stringify(github.context.payload, undefined, 2);
-  console.log(`The event payload: ${payload}`);
+  // Get linked PRs and Issues
+  const [linkedPRs, linkedIssues] = await Promise.all([
+    octokit.rest.repos.listPullRequestsAssociatedWithCommit({
+      owner,
+      repo,
+      commit_sha: github.context.sha,
+    }),
+    octokit.rest.repos.listCommitIssuesAssociatedWithCommit({
+      owner,
+      repo,
+      commit_sha: github.context.sha,
+    })
+  ]);
+
+  // Set outputs
+  core.setOutput("linked-prs", linkedPRs.data);
+  core.setOutput("linked-issues", linkedIssues.data);
+  
+  // Log results
   console.log('Linked PRs:', JSON.stringify(linkedPRs.data, null, 2));
+  console.log('Linked Issues:', JSON.stringify(linkedIssues.data, null, 2));
 } catch (error) {
   core.setFailed(error.message);
 }
