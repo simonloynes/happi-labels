@@ -12,5 +12,7 @@ jobs:
     - name: happi labels action steps
       uses: ./
       id: labels
+      with:
+        github-token: ${{github.token}}
     - name: Get the output
       run: echo "The output was ${{ steps.labels.outputs.test }}"
