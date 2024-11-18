@@ -36,8 +36,8 @@ try {
 
     // Get the current PR's commits
     const { data: commits } = await octokit.rest.pulls.listCommits({
-      owner: context.repo.owner, a
-        repo: context.repo.repo,
+      owner: context.repo.owner,
+      repo: context.repo.repo,
       pull_number: prNumber
     });
 
