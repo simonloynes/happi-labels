@@ -1,5 +1,10 @@
 name: 'Happi Labels'
 description: 'Add Labels to Pull Requests'
+inputs:
+  github-token:
+    description: 'GitHub token for API Access'
+    required: true
+    default: ${{ github.token}}
 outputs:
   test: # id of output
     description: 'Test output'
