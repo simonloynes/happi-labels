@@ -31641,19 +31641,21 @@ try {
   // Get GitHub token from inputs
   const token = _actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput('github-token', { required: true });
   const octokit = _actions_github__WEBPACK_IMPORTED_MODULE_1__.getOctokit(token);
-  const context = _actions_github__WEBPACK_IMPORTED_MODULE_1__.context;
+
+  // Get repository information
+  const { owner, repo, sha } = context.repo;
   
   // Get linked PRs and Issues
   const [linkedPRs, linkedIssues] = await Promise.all([
     octokit.rest.repos.listPullRequestsAssociatedWithCommit({
       owner,
       repo,
-      commit_sha: context.sha,
+      commit_sha: sha,
     }),
     octokit.rest.repos.listCommitIssuesAssociatedWithCommit({
       owner,
       repo,
-      commit_sha: context.sha,
+      commit_sha: sha,
     })
   ]);
 

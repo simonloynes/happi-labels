@@ -5,19 +5,21 @@ try {
   // Get GitHub token from inputs
   const token = core.getInput('github-token', { required: true });
   const octokit = github.getOctokit(token);
-  const context = github.context;
+
+  // Get repository information
+  const { owner, repo, sha } = context.repo;
   
   // Get linked PRs and Issues
   const [linkedPRs, linkedIssues] = await Promise.all([
     octokit.rest.repos.listPullRequestsAssociatedWithCommit({
       owner,
       repo,
-      commit_sha: context.sha,
+      commit_sha: sha,
     }),
     octokit.rest.repos.listCommitIssuesAssociatedWithCommit({
       owner,
       repo,
-      commit_sha: context.sha,
+      commit_sha: sha,
     })
   ]);
 
