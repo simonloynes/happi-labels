@@ -31700,13 +31700,13 @@ try {
     await addLabelToPR(prNumber);
 
     // Get and process related PRs
-    // const relatedPRs = await getRelatedPRs();
-    // console.log('Related PRs found:', relatedPRs);
+    const relatedPRs = await getRelatedPRs();
+    console.log('Related PRs found:', relatedPRs);
 
     // Add labels to related PRs
-    // for (const relatedPR of relatedPRs) {
-    //   await addLabelToPR(relatedPR);
-    // }
+    for (const relatedPR of relatedPRs) {
+      await addLabelToPR(relatedPR);
+    }
   }
 
   // Run the workflow
