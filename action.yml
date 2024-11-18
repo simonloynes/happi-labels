@@ -1,8 +1,9 @@
 name: 'Happi Labels'
-description: 'Add Labels to Pull Requests'
-outputs:
-  test: # id of output
-    description: 'Test output'
+description: 'Adds release labels to merged PRs and related PRs'
+inputs:
+  github-token:
+    description: 'GitHub token'
+    required: true
 runs:
   using: 'node20'
   main: 'dist/index.js'
