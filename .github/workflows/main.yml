@@ -1,6 +1,5 @@
 on:
   pull_request:
-    branches: [dev]
 
 jobs:
   label-prs:
