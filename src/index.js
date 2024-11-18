@@ -16,20 +16,15 @@ try {
       repo,
       commit_sha: sha,
     }),
-    octokit.rest.repos.listCommitIssuesAssociatedWithCommit({
-      owner,
-      repo,
-      commit_sha: sha,
-    })
   ]);
 
   // Set outputs
   core.setOutput("linked-prs", linkedPRs.data);
-  core.setOutput("linked-issues", linkedIssues.data);
+  // core.setOutput("linked-issues", linkedIssues.data);
   
   // Log results
   console.log('Linked PRs:', JSON.stringify(linkedPRs.data, null, 2));
-  console.log('Linked Issues:', JSON.stringify(linkedIssues.data, null, 2));
+  // console.log('Linked Issues:', JSON.stringify(linkedIssues.data, null, 2));
 } catch (error) {
   core.setFailed(error.message);
 }

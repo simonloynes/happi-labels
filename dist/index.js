@@ -31652,20 +31652,15 @@ try {
       repo,
       commit_sha: sha,
     }),
-    octokit.rest.repos.listCommitIssuesAssociatedWithCommit({
-      owner,
-      repo,
-      commit_sha: sha,
-    })
   ]);
 
   // Set outputs
   _actions_core__WEBPACK_IMPORTED_MODULE_0__.setOutput("linked-prs", linkedPRs.data);
-  _actions_core__WEBPACK_IMPORTED_MODULE_0__.setOutput("linked-issues", linkedIssues.data);
+  // core.setOutput("linked-issues", linkedIssues.data);
   
   // Log results
   console.log('Linked PRs:', JSON.stringify(linkedPRs.data, null, 2));
-  console.log('Linked Issues:', JSON.stringify(linkedIssues.data, null, 2));
+  // console.log('Linked Issues:', JSON.stringify(linkedIssues.data, null, 2));
 } catch (error) {
   _actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed(error.message);
 }
