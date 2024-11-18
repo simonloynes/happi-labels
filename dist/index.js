@@ -31626,6 +31626,98 @@ function parseParams (str) {
 module.exports = parseParams
 
 
+/***/ }),
+
+/***/ 2896:
+/***/ ((__webpack_module__, __unused_webpack___webpack_exports__, __nccwpck_require__) => {
+
+__nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependencies__, __webpack_async_result__) => { try {
+/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(9999);
+/* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(2819);
+
+
+
+try {
+  // Get inputs and GitHub token
+  const token = _actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput('github-token', { required: true });
+  const octokit = _actions_github__WEBPACK_IMPORTED_MODULE_1__.getOctokit(token);
+  const context = _actions_github__WEBPACK_IMPORTED_MODULE_1__.context;
+
+  // Get the current pull request number and branch name
+  const prNumber = context.payload.pull_request.number;
+  const branchName = context.payload.pull_request.base.ref;
+
+  // Create the label text
+  const labelText = `Released on @${branchName}`;
+
+  console.log(`Adding label ${labelText} to PR: ${prNumber}`);
+  // Function to add label to a PR
+  async function addLabelToPR(prNum) {
+    try {
+      await octokit.rest.issues.addLabels({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: prNum,
+        labels: [labelText]
+      });
+      console.log(`Successfully added label to PR #${prNum}`);
+    } catch (error) {
+      console.error(`Error adding label to PR #${prNum}:`, error);
+    }
+  }
+
+  // Function to get related PRs
+  async function getRelatedPRs() {
+    const relatedPRs = new Set();
+
+    // Get the current PR's commits
+    const { data: commits } = await octokit.rest.pulls.listCommits({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: prNumber
+    });
+
+    // For each commit, search for PRs that contain it
+    for (const commit of commits) {
+      const { data: searchResults } = await octokit.rest.search.issuesAndPullRequests({
+        q: `repo:${context.repo.owner}/${context.repo.repo} type:pr ${commit.sha}`
+      });
+
+      searchResults.items.forEach(pr => {
+        if (pr.number !== prNumber) {
+          relatedPRs.add(pr.number);
+        }
+      });
+    }
+
+    return Array.from(relatedPRs);
+  }
+
+  // Main execution
+  async function executeWorkflow() {
+    // Add label to current PR
+    console.log("Calling label adder");
+    await addLabelToPR(prNumber);
+
+    // Get and process related PRs
+    // const relatedPRs = await getRelatedPRs();
+    // console.log('Related PRs found:', relatedPRs);
+
+    // Add labels to related PRs
+    // for (const relatedPR of relatedPRs) {
+    //   await addLabelToPR(relatedPR);
+    // }
+  }
+
+  // Run the workflow
+  await executeWorkflow();
+
+} catch (error) {
+  _actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed(error.message);
+}
+__webpack_async_result__();
+} catch(e) { __webpack_async_result__(e); } }, 1);
+
 /***/ })
 
 /******/ });
@@ -31661,21 +31753,73 @@ module.exports = parseParams
 /******/ }
 /******/ 
 /************************************************************************/
-/******/ /* webpack/runtime/define property getters */
+/******/ /* webpack/runtime/async module */
 /******/ (() => {
-/******/ 	// define getter functions for harmony exports
-/******/ 	__nccwpck_require__.d = (exports, definition) => {
-/******/ 		for(var key in definition) {
-/******/ 			if(__nccwpck_require__.o(definition, key) && !__nccwpck_require__.o(exports, key)) {
-/******/ 				Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
+/******/ 	var webpackQueues = typeof Symbol === "function" ? Symbol("webpack queues") : "__webpack_queues__";
+/******/ 	var webpackExports = typeof Symbol === "function" ? Symbol("webpack exports") : "__webpack_exports__";
+/******/ 	var webpackError = typeof Symbol === "function" ? Symbol("webpack error") : "__webpack_error__";
+/******/ 	var resolveQueue = (queue) => {
+/******/ 		if(queue && queue.d < 1) {
+/******/ 			queue.d = 1;
+/******/ 			queue.forEach((fn) => (fn.r--));
+/******/ 			queue.forEach((fn) => (fn.r-- ? fn.r++ : fn()));
+/******/ 		}
+/******/ 	}
+/******/ 	var wrapDeps = (deps) => (deps.map((dep) => {
+/******/ 		if(dep !== null && typeof dep === "object") {
+/******/ 			if(dep[webpackQueues]) return dep;
+/******/ 			if(dep.then) {
+/******/ 				var queue = [];
+/******/ 				queue.d = 0;
+/******/ 				dep.then((r) => {
+/******/ 					obj[webpackExports] = r;
+/******/ 					resolveQueue(queue);
+/******/ 				}, (e) => {
+/******/ 					obj[webpackError] = e;
+/******/ 					resolveQueue(queue);
+/******/ 				});
+/******/ 				var obj = {};
+/******/ 				obj[webpackQueues] = (fn) => (fn(queue));
+/******/ 				return obj;
 /******/ 			}
 /******/ 		}
+/******/ 		var ret = {};
+/******/ 		ret[webpackQueues] = x => {};
+/******/ 		ret[webpackExports] = dep;
+/******/ 		return ret;
+/******/ 	}));
+/******/ 	__nccwpck_require__.a = (module, body, hasAwait) => {
+/******/ 		var queue;
+/******/ 		hasAwait && ((queue = []).d = -1);
+/******/ 		var depQueues = new Set();
+/******/ 		var exports = module.exports;
+/******/ 		var currentDeps;
+/******/ 		var outerResolve;
+/******/ 		var reject;
+/******/ 		var promise = new Promise((resolve, rej) => {
+/******/ 			reject = rej;
+/******/ 			outerResolve = resolve;
+/******/ 		});
+/******/ 		promise[webpackExports] = exports;
+/******/ 		promise[webpackQueues] = (fn) => (queue && fn(queue), depQueues.forEach(fn), promise["catch"](x => {}));
+/******/ 		module.exports = promise;
+/******/ 		body((deps) => {
+/******/ 			currentDeps = wrapDeps(deps);
+/******/ 			var fn;
+/******/ 			var getResult = () => (currentDeps.map((d) => {
+/******/ 				if(d[webpackError]) throw d[webpackError];
+/******/ 				return d[webpackExports];
+/******/ 			}))
+/******/ 			var promise = new Promise((resolve) => {
+/******/ 				fn = () => (resolve(getResult));
+/******/ 				fn.r = 0;
+/******/ 				var fnQueue = (q) => (q !== queue && !depQueues.has(q) && (depQueues.add(q), q && !q.d && (fn.r++, q.push(fn))));
+/******/ 				currentDeps.map((dep) => (dep[webpackQueues](fnQueue)));
+/******/ 			});
+/******/ 			return fn.r ? promise : getResult();
+/******/ 		}, (err) => ((err ? reject(promise[webpackError] = err) : outerResolve(exports)), resolveQueue(queue)));
+/******/ 		queue && queue.d < 0 && (queue.d = 0);
 /******/ 	};
-/******/ })();
-/******/ 
-/******/ /* webpack/runtime/hasOwnProperty shorthand */
-/******/ (() => {
-/******/ 	__nccwpck_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
 /******/ })();
 /******/ 
 /******/ /* webpack/runtime/compat */
@@ -31683,96 +31827,10 @@ module.exports = parseParams
 /******/ if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = new URL('.', import.meta.url).pathname.slice(import.meta.url.match(/^file:\/\/\/\w:/) ? 1 : 0, -1) + "/";
 /******/ 
 /************************************************************************/
-var __webpack_exports__ = {};
-/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
-/* harmony export */   e: () => (/* binding */ run)
-/* harmony export */ });
-/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(9999);
-/* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(2819);
-
-
-
-async function run() {
-  try {
-    // Get inputs and GitHub token
-    const token = _actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput('github-token', { required: true });
-    const octokit = _actions_github__WEBPACK_IMPORTED_MODULE_1__.getOctokit(token);
-    const context = _actions_github__WEBPACK_IMPORTED_MODULE_1__.context;
-
-    // Get the current pull request number and branch name
-    const prNumber = context.payload.pull_request.number;
-    const branchName = context.payload.pull_request.base.ref;
-
-    // Create the label text
-    const labelText = `Released on @${branchName}`;
-
-    console.log(`Adding label ${labelText} to PR: ${prNumber}`);
-    // Function to add label to a PR
-    async function addLabelToPR(prNum) {
-      try {
-        await octokit.rest.issues.addLabels({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: prNum,
-          labels: [labelText]
-        });
-        console.log(`Successfully added label to PR #${prNum}`);
-      } catch (error) {
-        console.error(`Error adding label to PR #${prNum}:`, error);
-      }
-    }
-
-    // Function to get related PRs
-    async function getRelatedPRs() {
-      const relatedPRs = new Set();
-
-      // Get the current PR's commits
-      const { data: commits } = await octokit.rest.pulls.listCommits({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        pull_number: prNumber
-      });
-
-      // For each commit, search for PRs that contain it
-      for (const commit of commits) {
-        const { data: searchResults } = await octokit.rest.search.issuesAndPullRequests({
-          q: `repo:${context.repo.owner}/${context.repo.repo} type:pr ${commit.sha}`
-        });
-
-        searchResults.items.forEach(pr => {
-          if (pr.number !== prNumber) {
-            relatedPRs.add(pr.number);
-          }
-        });
-      }
-
-      return Array.from(relatedPRs);
-    }
-
-    // Main execution
-    async function executeWorkflow() {
-      // Add label to current PR
-      console.log("Calling label adder");
-      await addLabelToPR(prNumber);
-
-      // Get and process related PRs
-      // const relatedPRs = await getRelatedPRs();
-      // console.log('Related PRs found:', relatedPRs);
-
-      // Add labels to related PRs
-      // for (const relatedPR of relatedPRs) {
-      //   await addLabelToPR(relatedPR);
-      // }
-    }
-
-    // Run the workflow
-    await executeWorkflow();
-
-  } catch (error) {
-    _actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed(error.message);
-  }
-}
-
-
-var __webpack_exports__run = __webpack_exports__.e;
-export { __webpack_exports__run as run };
+/******/ 
+/******/ // startup
+/******/ // Load entry module and return exports
+/******/ // This entry module used 'module' so it can't be inlined
+/******/ var __webpack_exports__ = __nccwpck_require__(2896);
+/******/ __webpack_exports__ = await __webpack_exports__;
+/******/ 
