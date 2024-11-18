@@ -7,7 +7,7 @@ try {
   const octokit = github.getOctokit(token);
 
   // Get repository information
-  const { owner, repo, sha } = context.repo;
+  const { repo: { owner, repo }, sha } = github.context;
   
   // Get linked PRs and Issues
   const [linkedPRs, linkedIssues] = await Promise.all([

@@ -31643,7 +31643,7 @@ try {
   const octokit = _actions_github__WEBPACK_IMPORTED_MODULE_1__.getOctokit(token);
 
   // Get repository information
-  const { owner, repo, sha } = context.repo;
+  const { repo: { owner, repo }, sha } = _actions_github__WEBPACK_IMPORTED_MODULE_1__.context;
   
   // Get linked PRs and Issues
   const [linkedPRs, linkedIssues] = await Promise.all([
