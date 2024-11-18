@@ -10,10 +10,11 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
       - name: Install Dependencies
-        run: npm install @actions/core @actions/github
+        run: npm install
       - name: Run Labeler
-        uses: ./.github/actions/pr-labeler
+        uses: ./
+        id: labels
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
