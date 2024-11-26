@@ -1,9 +1,21 @@
 name: 'Happi Labels'
 description: 'Adds release labels to merged PRs and related PRs'
 inputs:
+  max-pr-count:
+    description: Maximum number of pull requests we will attempt to label. PR counts exceeding this value will prevent labelling of related PRs.
+    required: false
+    default: '25'
+  batch-size:
+    description: Maximum number of requests to send in one batch
+    required: false
+    default: '5'
   github-token:
     description: 'GitHub token'
     required: true
+  log-summary:
+    description: 'Enable logging of action summary'
+    required: false
+    default: 'true'
 runs:
   using: 'node20'
   main: 'dist/index.js'
