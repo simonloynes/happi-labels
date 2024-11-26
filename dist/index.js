@@ -31770,7 +31770,14 @@ class SummaryService {
         console.log(`Initial PR: #${this.summary.initialPR}`);
         console.log(`Label: "${this.summary.labelText}"`);
         console.log(`Related PRs found: ${this.summary.relatedPRsCount}`);
-        console.log(`Successfully labeled PRs: ${this.summary.successfulLabels.map(pr => `#${pr}`).join(', ')}`);
+        if (this.summary.successfulLabels.length > 0) {
+            console.log(`Successfully labeled PRs:`);
+            this.summary.successfulLabels.forEach((pr) => { console.log(`- #${pr.prNumber}`); });
+        }
+        if (this.summary.failedLabels.length > 0) {
+            console.log(`Failed to label PRs:`);
+            this.summary.failedLabels.forEach((pr) => { console.log(`- #${pr.prNumber}`); });
+        }
     }
 }
 
