@@ -27,6 +27,12 @@ jobs:
         with:
           version: 9
       
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
       - name: Install
         run: pnpm i --frozen-lockfile
       
