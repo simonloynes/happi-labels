@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    
+jobs:
+  happi-labels-release:
+    if: '!contains(github.event.head_commit.message, "[skip ci]")'
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      
+      - name: Set-up pnpm
+        id: setup-node
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      
+      - name: Install
+        run: pnpm i --frozen-lockfile --prod
+      
+      - name: Build
+        run: pnpm run build
+
+      - name: Release
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm run release
