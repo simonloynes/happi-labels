@@ -16,11 +16,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: checkout
+      - name: Checkout
         id: checkout
         uses: actions/checkout@v4
       
-      - name: set-up pnpm
+      - name: Set-up pnpm
         id: setup-node
         uses: pnpm/action-setup@v4
         with:
@@ -32,7 +32,7 @@ jobs:
           node-version: 20
           cache: 'pnpm'
   
-      - name: install dependencies
+      - name: Install dependencies
         id: pnpm-install
         run: pnpm install
 
