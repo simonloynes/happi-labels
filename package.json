@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "ncc build ./src/index.ts --license licenses.txt",
-    "test": "vitest"
+    "test": "vitest",
+    "release": "semantic-release"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@vercel/ncc": "^0.38.3",
+    "semantic-release": "^24.2.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.6"
   }
