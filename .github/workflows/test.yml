@@ -1,0 +1,43 @@
+name: Test
+on: 
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  
+jobs:
+  test-happi-labels:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        id: checkout
+        uses: actions/checkout@v4
+      
+      - name: set-up pnpm
+        id: setup-node
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+  
+      - name: install dependencies
+        id: pnpm-install
+        run: pnpm install
+
+      - name: Test
+        id: pnpm-run-test
+        run: pnpm run test
+          
+
