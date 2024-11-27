@@ -1,3 +1,10 @@
+## [0.1.1](https://github.com/simonloynes/happi-labels/compare/v0.1.0...v0.1.1) (2024-11-27)
+
+
+### Bug Fixes
+
+* release token var ([709f547](https://github.com/simonloynes/happi-labels/commit/709f5475a61c0656a1888b0904d18d6854f3de30))
+
 # [0.1.0](https://github.com/simonloynes/happi-labels/compare/v0.0.1...v0.1.0) (2024-11-27)
 
 
