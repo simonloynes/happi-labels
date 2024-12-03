@@ -1,3 +1,10 @@
+## [0.1.5](https://github.com/simonloynes/happi-labels/compare/v0.1.4...v0.1.5) (2024-12-03)
+
+
+### Bug Fixes
+
+* release build in package ([429e160](https://github.com/simonloynes/happi-labels/commit/429e1603708f63f07f5541cff541068a66bfedc4))
+
 ## [0.1.4](https://github.com/simonloynes/happi-labels/compare/v0.1.3...v0.1.4) (2024-12-03)
 
 
