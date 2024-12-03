@@ -1,3 +1,10 @@
+## [0.1.6](https://github.com/simonloynes/happi-labels/compare/v0.1.5...v0.1.6) (2024-12-03)
+
+
+### Bug Fixes
+
+* add files to package.json ([5f63338](https://github.com/simonloynes/happi-labels/commit/5f63338db311a2abf3a8e19424c14aa58f32bbd1))
+
 ## [0.1.5](https://github.com/simonloynes/happi-labels/compare/v0.1.4...v0.1.5) (2024-12-03)
 
 
