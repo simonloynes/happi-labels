@@ -1,3 +1,10 @@
+## [0.1.2](https://github.com/simonloynes/happi-labels/compare/v0.1.1...v0.1.2) (2024-12-03)
+
+
+### Bug Fixes
+
+* release config for dist dir ([729bbca](https://github.com/simonloynes/happi-labels/commit/729bbcad19f835df729cf07f38db6bc8622d0b92))
+
 ## [0.1.1](https://github.com/simonloynes/happi-labels/compare/v0.1.0...v0.1.1) (2024-11-27)
 
 
