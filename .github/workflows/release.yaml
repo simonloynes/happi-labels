@@ -40,3 +40,6 @@ jobs:
         env:
             GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: pnpm run release
+
+      - name: List dist directory
+        run: ls -la dist
