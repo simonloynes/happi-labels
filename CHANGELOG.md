@@ -1,3 +1,10 @@
+## [0.1.11](https://github.com/simonloynes/happi-labels/compare/v0.1.10...v0.1.11) (2024-12-09)
+
+
+### Bug Fixes
+
+* build and tag release branch ([bfc2005](https://github.com/simonloynes/happi-labels/commit/bfc2005a112d1542befd1a94816aa7b272400366))
+
 ## [0.1.6](https://github.com/simonloynes/happi-labels/compare/v0.1.5...v0.1.6) (2024-12-03)
 
 
