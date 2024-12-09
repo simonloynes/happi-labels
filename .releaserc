@@ -6,7 +6,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "npm run build && git stash -u && git fetch origin release:release || git checkout -b release && git checkout release && git stash pop && git add dist/ && git commit -m 'chore: update build output [skip ci]' && git push origin release && git checkout - && git stash pop"
+        "prepareCmd": "pnpm run build && git checkout -B release && git add dist/ && git commit -m 'chore: update build output [skip ci]' || true && git push -f origin release"
       }
     ],
     "@semantic-release/github"
