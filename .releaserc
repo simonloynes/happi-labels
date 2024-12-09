@@ -1,31 +1,15 @@
 {
-  "branches": [
-    "main",
-    { "name": "release" }
-  ],
+  "branches": ["main"],
   "plugins": [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
-    "@semantic-release/changelog",
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "pnpm run build"
+        "prepareCmd": "npm run build && git stash -u && git fetch origin release:release || git checkout -b release && git checkout release && git stash pop && git add dist/ && git commit -m 'chore: update build output [skip ci]' && git push origin release && git checkout - && git stash pop"
       }
     ],
-    [
-      "@semantic-release/git",
-      {
-        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
-        "branch": "release",
-        "ignore": []
-      }
-    ],
-    [
-      "@semantic-release/github",
-      {
-        "assets": []
-      }
-    ]
-  ]
+    "@semantic-release/github"
+  ],
+  "tagFormat": "v${version}"
 }
