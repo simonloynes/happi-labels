@@ -36,9 +36,15 @@ jobs:
       - name: Install
         run: pnpm i --frozen-lockfile
 
-      - name: Release
+      - name: SetUp Git Credentials
         env:
-            GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        uses: oleksiyrudenko/gha-git-credentials@v2-latest
+        with:
+          token: '${{ secrets.GITHUB_TOKEN }}'
+          actor: 'HappiBot 🤖'
+
+      - name: Run Release
         run: pnpm run release
 
       - name: List dist directory
