@@ -12,17 +12,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
+      pull-requests: write
 
     steps:
       - name: Checkout
-        id: checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
-      
+          token: ${{ secrets.RELEASE_TOKEN }}
+
       - name: Set-up pnpm
-        id: setup-node
         uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -36,16 +36,11 @@ jobs:
       - name: Install
         run: pnpm i --frozen-lockfile
 
-      - name: SetUp Git Credentials
+      - name: Run Release
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-        uses: oleksiyrudenko/gha-git-credentials@v2-latest
-        with:
-          token: '${{ secrets.GITHUB_TOKEN }}'
-          actor: 'HappiBot 🤖'
-
-      - name: Run Release
+          NODE_AUTH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: pnpm run release
-
+      
       - name: List dist directory
         run: ls -la dist
