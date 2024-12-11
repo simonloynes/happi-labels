@@ -1,5 +1,4 @@
 import { getOctokit } from '@actions/github';
-import { Octokit } from '@octokit/rest';
 
 export class GitHubService {
   constructor(
