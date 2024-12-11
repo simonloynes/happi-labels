@@ -1,31 +1,23 @@
-import * as core from '@actions/core';
-import * as github from '@actions/github';
-import { GitHubService } from './services/github';
-import { SummaryService } from './services/summary';
+import * as core from "@actions/core";
+import * as github from "@actions/github";
+import { GitHubService } from "./services/github";
+import { SummaryService } from "./services/summary";
 
-/**
- * @todo
- * add the ability to throttle the calls to addLabelToPR
- * add user provided timeout for maximum acceptable run duration
- * add batch label creation functionality
- * add user provided batch size with default
- * add jitter calls to assLabelToPr
- * add user provided max pr count value to provide a hard limit with tha aim of preventing triggering rate limits
- */
 export async function run(): Promise<void> {
   try {
-    const token = core.getInput('github-token', { required: true });
-    const logSummary = core.getInput('log-summary') === 'true';
+    const token = core.getInput("github-token", { required: true });
+    const logSummary = core.getInput("log-summary") === "true";
+    const labelPrefix = core.getInput("label-prefix");
     const octokit = github.getOctokit(token);
     const context = github.context;
 
     if (!context.payload.pull_request?.base?.ref) {
-      throw new Error('This action must be run in a pull request context');
+      throw new Error("This action must be run in a pull request context");
     }
 
     const prNumber = context.payload.pull_request.number;
     const branchName = context.payload.pull_request.base.ref;
-    const labelText = `Released on @${branchName}`;
+    const labelText = `${labelPrefix}${branchName}`;
 
     const githubService = new GitHubService(
       octokit,
@@ -43,38 +35,42 @@ export async function run(): Promise<void> {
       summaryService.addFailedLabel(prNumber);
     }
 
-    const batchSize = parseInt(core.getInput('batch-size')) || 5;
+    const batchSize = parseInt(core.getInput("batch-size")) || 5;
 
-    const maxPRCount = parseInt(core.getInput('max-pr-count')) || 10;
+    const maxPRCount = parseInt(core.getInput("max-pr-count")) || 10;
 
     const relatedPRs = await githubService.getRelatedPRs(prNumber);
     summaryService.setRelatedPRsCount(relatedPRs.length);
-    console.trace('Related PRs found:', relatedPRs);
+    console.trace("Related PRs found:", relatedPRs);
 
     const limitExceeded = relatedPRs.length > maxPRCount;
 
     for (let i = 0; i < relatedPRs.length; i += batchSize) {
       const batch = relatedPRs.slice(i, i + batchSize);
-      await Promise.all(batch.map(async (relatedPR) => {
-        try {
-          if (limitExceeded) throw new Error("Max PR update limit exceeded");
-          await githubService.addLabelToPR(relatedPR, labelText);
-          summaryService.addSuccessfulLabel(relatedPR);
-        } catch (error) {
-          summaryService.addFailedLabel(relatedPR, error instanceof Error ? error.message : 'Unknown error');
-        }
-      }));
+      await Promise.all(
+        batch.map(async (relatedPR) => {
+          try {
+            if (limitExceeded) throw new Error("Max PR update limit exceeded");
+            await githubService.addLabelToPR(relatedPR, labelText);
+            summaryService.addSuccessfulLabel(relatedPR);
+          } catch (error) {
+            summaryService.addFailedLabel(
+              relatedPR,
+              error instanceof Error ? error.message : "Unknown error"
+            );
+          }
+        })
+      );
     }
 
     summaryService.logSummary();
-
   } catch (error) {
     if (error instanceof Error) {
       core.setFailed(error.message);
     } else {
-      core.setFailed('An unknown error occurred');
+      core.setFailed("An unknown error occurred");
     }
   }
 }
 
-run(); 
+run();
