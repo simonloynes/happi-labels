@@ -2,13 +2,7 @@
   "branches": ["main"],
   "plugins": [
     "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
-    [
-      "@semantic-release/exec",
-      {
-        "prepareCmd": "pnpm run build && git commit -m 'chore: update build output [skip ci]' || true && git push -f origin main"
-      }
-    ]
+    "@semantic-release/release-notes-generator"
   ],
   "tagFormat": "v${version}"
 }
