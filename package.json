@@ -10,8 +10,7 @@
     "release": "semantic-release"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Simon Loynes",
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0",
