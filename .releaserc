@@ -9,7 +9,12 @@
         "prepareCmd": "pnpm run build && git add dist && git commit -m 'chore: update build output [skip ci]' || true"
       }
     ],
-    "@semantic-release/git"
+    [
+      "@semantic-release/git",
+      {
+        "message": "chore(release): ${nextRelease.version} [skip ci]"
+      }
+    ]
   ],
   "tagFormat": "v${version}"
 }
