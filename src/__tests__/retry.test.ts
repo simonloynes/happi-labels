@@ -59,18 +59,18 @@ describe('withRetry', () => {
       maxDelay: 10000,
     });
     
-    // Fast-forward through all delays
-    await vi.runAllTimersAsync();
+    // Use Promise.all to wait for both the timers and the rejection
+    await Promise.all([
+      vi.runAllTimersAsync(),
+      expect(resultPromise).rejects.toThrowError(error)
+    ]);
     
-    await expect(resultPromise).rejects.toThrow('Persistent failure');
     expect(operation).toHaveBeenCalledTimes(3);
   });
 
   it('should implement exponential backoff', async () => {
-    const operation = vi.fn()
-      .mockRejectedValueOnce(new Error('Failure'))
-      .mockRejectedValueOnce(new Error('Failure'))
-      .mockRejectedValueOnce(new Error('Failure'));
+    const error = new Error('Failure');
+    const operation = vi.fn().mockRejectedValue(error);
     
     const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
     
@@ -81,9 +81,10 @@ describe('withRetry', () => {
     });
     
     // Fast-forward through all delays
-    await vi.runAllTimersAsync();
-    
-    await expect(resultPromise).rejects.toThrow('Failure');
+    await Promise.all([
+      vi.runAllTimersAsync(),
+      expect(resultPromise).rejects.toThrowError(error)
+    ]);
     
     // Check that setTimeout was called with exponentially increasing delays
     expect(setTimeoutSpy).toHaveBeenCalledTimes(2); // 2 retries
@@ -92,7 +93,9 @@ describe('withRetry', () => {
   });
 
   it('should respect maxDelay limit', async () => {
-    const operation = vi.fn().mockRejectedValue(new Error('Failure'));
+    const error = new Error('Failure');
+    const operation = vi.fn().mockRejectedValue(error);
+
     const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
     
     const resultPromise = withRetry(operation, {
@@ -102,29 +105,34 @@ describe('withRetry', () => {
     });
     
     // Fast-forward through all delays
-    await vi.runAllTimersAsync();
-    
-    await expect(resultPromise).rejects.toThrow('Failure');
-    
+    await Promise.all([
+      vi.runAllTimersAsync(),
+      expect(resultPromise).rejects.toThrowError(error)
+    ]);
+
     // Second retry should be capped at maxDelay
     expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 5000); // 1st retry
     expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), 8000); // 2nd retry (capped)
   });
 
   it('should use default options if none provided', async () => {
-    const operation = vi.fn().mockRejectedValue(new Error('Failure'));
+    const error = new Error('Failure');
+    const operation = vi.fn().mockRejectedValue(error);
     
     const resultPromise = withRetry(operation);
     
     // Fast-forward through all delays
-    await vi.runAllTimersAsync();
+    await Promise.all([
+      vi.runAllTimersAsync(),
+      expect(resultPromise).rejects.toThrowError(error)
+    ]);
     
     await expect(resultPromise).rejects.toThrow('Failure');
     expect(operation).toHaveBeenCalledTimes(3); // default maxAttempts
   });
 
   it('should convert non-Error throws to Error objects', async () => {
-    const operation = vi.fn().mockRejectedValue('string error');
+    const operation = vi.fn().mockRejectedValue('String Error');
     
     const resultPromise = withRetry(operation, {
       maxAttempts: 1,
@@ -133,6 +141,6 @@ describe('withRetry', () => {
     });
     
     await expect(resultPromise).rejects.toBeInstanceOf(Error);
-    await expect(resultPromise).rejects.toThrow('string error');
+    await expect(resultPromise).rejects.toThrow('String Error');
   });
 }); 

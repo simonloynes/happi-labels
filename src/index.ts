@@ -62,26 +62,30 @@ export async function run(): Promise<void> {
     // Process related PRs in batches
     for (let i = 0; i < relatedPRs.length; i += batchSize) {
       const batch = relatedPRs.slice(i, i + batchSize);
-      await withRetry(async () => {
-        await Promise.all(
-          batch.map(async (relatedPR) => {
-            try {
-              if (limitExceeded) throw new Error("Max PR update limit exceeded");
-              await githubService.addLabelToPR(relatedPR, labelText);
-              summaryService.addSuccessfulLabel(relatedPR);
-            } catch (error) {
-              summaryService.addFailedLabel(
-                relatedPR,
-                error instanceof Error ? error.message : "Unknown error"
-              );
-            }
-          })
-        );
-      }, {
-        maxAttempts: 3,
-        initialDelay: 1000,
-        maxDelay: 10000,
-      });
+      try {
+        await withRetry(async () => {
+          await Promise.all(
+            batch.map(async (relatedPR) => {
+              try {
+                if (limitExceeded) throw new Error("Max PR update limit exceeded");
+                await githubService.addLabelToPR(relatedPR, labelText);
+                summaryService.addSuccessfulLabel(relatedPR);
+              } catch (error) {
+                summaryService.addFailedLabel(
+                  relatedPR,
+                  error instanceof Error ? error.message : "Unknown error"
+                );
+              }
+            })
+          );
+        }, {
+          maxAttempts: 3,
+          initialDelay: 1000,
+          maxDelay: 10000,
+        });
+      } catch (error) {
+        console.error("Error during batch processing:", error);
+      }
     }
 
     // Log final summary
