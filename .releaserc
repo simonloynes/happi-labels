@@ -6,9 +6,10 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "pnpm run build && git commit -m 'chore: update build output [skip ci]' || true && git push -f origin main"
+        "prepareCmd": "pnpm run build && git add dist && git commit -m 'chore: update build output [skip ci]' || true"
       }
-    ]
+    ],
+    "@semantic-release/git"
   ],
   "tagFormat": "v${version}"
 }
