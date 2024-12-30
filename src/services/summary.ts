@@ -61,11 +61,17 @@ export class SummaryService {
     console.log(`Related PRs found: ${this.summary.relatedPRsCount}`);
     if (this.summary.successfulLabels.length > 0) {
       console.log(`Successfully labeled PRs:`);
-      this.summary.successfulLabels.forEach((pr) => { console.log(`- #${pr.prNumber}`); });
+      this.sortPullRequests(this.summary.successfulLabels).forEach((pr) => { console.log(`- #${pr.prNumber}`); });
     }
     if (this.summary.failedLabels.length > 0) {
       console.log(`Failed to label PRs:`);
-      this.summary.failedLabels.forEach((pr) => { console.log(`- #${pr.prNumber}`); });
+      this.sortPullRequests(this.summary.failedLabels).forEach((pr) => { console.log(`- #${pr.prNumber}`); });
     }
+  }
+  /**
+   * Sorts list off pull request references
+   */
+  sortPullRequests(pullRequests: PullRequestLabel[]): PullRequestLabel[] {
+    return pullRequests.sort((a, b) => a.prNumber - b.prNumber);
   }
 }
