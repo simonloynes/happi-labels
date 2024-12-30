@@ -57,17 +57,18 @@ export async function run(): Promise<void> {
     summaryService.setRelatedPRsCount(relatedPRs.length);
     console.trace("Related PRs found:", relatedPRs);
 
-    const limitExceeded = relatedPRs.length > maxPRCount;
-
     // Process related PRs in batches
     for (let i = 0; i < relatedPRs.length; i += batchSize) {
       const batch = relatedPRs.slice(i, i + batchSize);
       try {
         await withRetry(async () => {
           await Promise.all(
-            batch.map(async (relatedPR) => {
+            batch.map(async (relatedPR, batchIndex) => {
               try {
-                if (limitExceeded) throw new Error("Max PR update limit exceeded");
+                if (i + batchIndex >= maxPRCount) {
+                  summaryService.addFailedLabel(relatedPR, "Max PR update limit exceeded");
+                  return;
+                }
                 await githubService.addLabelToPR(relatedPR, labelText);
                 summaryService.addSuccessfulLabel(relatedPR);
               } catch (error) {

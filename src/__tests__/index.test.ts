@@ -104,7 +104,7 @@ describe("run function", () => {
       getRelatedPRs: vi
         .fn()
         .mockResolvedValue([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-    } as unknown as GitHubService; // Cast to GitHubService type
+    } as unknown as GitHubService;
     vi.mocked(GitHubService).mockImplementation(() => mockGitHubService);
 
     vi.mocked(core.getInput).mockImplementation((name) => {
@@ -112,7 +112,9 @@ describe("run function", () => {
         case "github-token":
           return "mock-token";
         case "max-pr-count":
-          return "10";
+          return "5";
+        case "label-prefix":
+            return "Released on @"
         default:
           return "";
       }
@@ -120,8 +122,15 @@ describe("run function", () => {
 
     await run();
 
-    // Verify that addLabelToPR is not called for PRs beyond the limit
-    expect(mockGitHubService.addLabelToPR).toHaveBeenCalledTimes(1); // Only for the original PR
+    // Verify that addLabelToPR is called only for PRs within the limit
+    expect(mockGitHubService.addLabelToPR).toHaveBeenCalledTimes(6);
+    
+    // First call should be for the original PR
+    expect(mockGitHubService.addLabelToPR).toHaveBeenNthCalledWith(1, 123, "Released on @main");
+    
+    // Subsequent calls should be for the first 5 related PRs
+    expect(mockGitHubService.addLabelToPR).toHaveBeenNthCalledWith(2, 1, "Released on @main");
+    expect(mockGitHubService.addLabelToPR).toHaveBeenNthCalledWith(6, 5, "Released on @main");
   });
 
   it("should process PRs in correct batch sizes", async () => {
