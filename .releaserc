@@ -1,12 +1,15 @@
 {
-  "branches": ["main"],
+  "branches": [
+    {"name": "main"},
+    {"name": "release", "channel": "release"}
+  ],
   "plugins": [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "git checkout -B release main && pnpm run build && git add dist && git commit -m 'chore: update build output' || true && git push -f origin release"
+        "prepareCmd": "git checkout release && git merge main && pnpm run build && git add dist && git commit -m 'chore: update build output' || true && git push origin release"
       }
     ]
   ],
