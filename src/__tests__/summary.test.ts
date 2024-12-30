@@ -81,4 +81,24 @@ describe('SummaryService', () => {
       expect(mockConsoleLog).not.toHaveBeenCalled();
     });
   });
+
+  describe('sortPullRequests', () => {
+    it('should sort pull request numbers in ascending order', () => {
+      const unsortedPRs = [
+        { prNumber: 113 },
+        { prNumber: 110 },
+        { prNumber: 112 },
+        { prNumber: 111 }
+      ];
+      
+      const sortedPRs = summaryService.sortPullRequests(unsortedPRs);
+      
+      expect(sortedPRs).toEqual([
+        { prNumber: 110 },
+        { prNumber: 111 },
+        { prNumber: 112 },
+        { prNumber: 113 }
+      ]);
+    });
+  });
 }); 
