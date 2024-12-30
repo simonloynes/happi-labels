@@ -1,4 +1,4 @@
-# happi-labels
+# happi-labels 😜
 
 Automatically add release labels to GitHub pull requests when they are closed. This action helps track which PRs were released with specific branches/versions.
 
