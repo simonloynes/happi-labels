@@ -31742,8 +31742,16 @@ class GitHubService {
 
 ;// CONCATENATED MODULE: ./src/services/summary.ts
 class SummaryService {
+    /** The summary object containing all operation results */
     summary;
+    /** Flag to control logging behavior */
     logEnabled;
+    /**
+     * Creates a new instance of SummaryService
+     * @param initialPR - The number of the initial pull request that triggered the action
+     * @param labelText - The text of the label being applied
+     * @param logEnabled - Whether to enable console logging of the summary
+     */
     constructor(initialPR, labelText, logEnabled) {
         this.summary = {
             initialPR,
@@ -31754,15 +31762,33 @@ class SummaryService {
         };
         this.logEnabled = logEnabled;
     }
+    /**
+     * Sets the count of related pull requests found
+     * @param count - The number of related pull requests
+     */
     setRelatedPRsCount(count) {
         this.summary.relatedPRsCount = count;
     }
+    /**
+     * Adds a successfully labeled pull request to the summary
+     * @param prNumber - The number of the successfully labeled pull request
+     */
     addSuccessfulLabel(prNumber) {
         this.summary.successfulLabels.push({ prNumber });
     }
+    /**
+     * Adds a failed label attempt to the summary
+     * @param prNumber - The number of the pull request that failed to be labeled
+     * @param failReason - Optional reason for the labeling failure
+     */
     addFailedLabel(prNumber, failReason) {
         this.summary.failedLabels.push({ prNumber, failReason });
     }
+    /**
+     * Logs the complete summary to the console if logging is enabled
+     * Includes information about the initial PR, label text, related PRs count,
+     * and lists of successful and failed labeling operations
+     */
     logSummary() {
         if (!this.logEnabled)
             return; // Skip logging if not enabled
@@ -31772,13 +31798,59 @@ class SummaryService {
         console.log(`Related PRs found: ${this.summary.relatedPRsCount}`);
         if (this.summary.successfulLabels.length > 0) {
             console.log(`Successfully labeled PRs:`);
-            this.summary.successfulLabels.forEach((pr) => { console.log(`- #${pr.prNumber}`); });
+            this.sortPullRequests(this.summary.successfulLabels).forEach((pr) => { console.log(`- #${pr.prNumber}`); });
         }
         if (this.summary.failedLabels.length > 0) {
             console.log(`Failed to label PRs:`);
-            this.summary.failedLabels.forEach((pr) => { console.log(`- #${pr.prNumber}`); });
+            this.sortPullRequests(this.summary.failedLabels).forEach((pr) => { console.log(`- #${pr.prNumber}`); });
         }
     }
+    /**
+     * Sorts list off pull request references
+     */
+    sortPullRequests(pullRequests) {
+        return pullRequests.sort((a, b) => a.prNumber - b.prNumber);
+    }
+}
+
+;// CONCATENATED MODULE: ./src/utils/retry.ts
+/**
+ * Executes an async operation with exponential backoff retry logic
+ * @param operation - The async function to execute with retry logic
+ * @param options - Retry configuration options
+ * @returns Promise resolving to the operation result
+ * @throws Last encountered error after all retry attempts fail
+ *
+ * @example
+ * const result = await withRetry(
+ *   async () => await fetchData(),
+ *   { maxAttempts: 3, initialDelay: 1000, maxDelay: 10000 }
+ * );
+ */
+async function withRetry(operation, options = {
+    maxAttempts: 3,
+    initialDelay: 1000,
+    maxDelay: 10000,
+}) {
+    let lastError;
+    for (let attempt = 1; attempt <= options.maxAttempts; attempt++) {
+        try {
+            return await operation();
+        }
+        catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            if (attempt === options.maxAttempts) {
+                throw lastError;
+            }
+            // Calculate delay using exponential backoff with a maximum limit
+            // Formula: min(initialDelay * 2^(attempt-1), maxDelay)
+            const delay = Math.min(options.initialDelay * Math.pow(2, attempt - 1), options.maxDelay);
+            console.trace(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    // This should never be reached due to the throw above
+    throw lastError;
 }
 
 ;// CONCATENATED MODULE: ./src/index.ts
@@ -31786,8 +31858,18 @@ class SummaryService {
 
 
 
+
+/**
+ * Main execution function for the GitHub Action.
+ * This function handles the process of adding labels to pull requests and their related PRs.
+ *
+ * @throws {Error} If not running in a pull request context
+ * @throws {Error} If the maximum PR update limit is exceeded
+ * @returns {Promise<void>}
+ */
 async function run() {
     try {
+        // Get input parameters from action configuration
         const token = core.getInput("github-token", { required: true });
         const logSummary = core.getInput("log-summary") === "true";
         const labelPrefix = core.getInput("label-prefix");
@@ -31796,11 +31878,14 @@ async function run() {
         if (!context.payload.pull_request?.base?.ref) {
             throw new Error("This action must be run in a pull request context");
         }
+        // Extract PR details
         const prNumber = context.payload.pull_request.number;
         const branchName = context.payload.pull_request.base.ref;
         const labelText = `${labelPrefix}${branchName}`;
+        // Initialize services
         const githubService = new GitHubService(octokit, context.repo.owner, context.repo.repo);
         const summaryService = new SummaryService(prNumber, labelText, logSummary);
+        // Add label to the triggering PR
         console.trace(`Adding label ${labelText} to PR: ${prNumber}`);
         try {
             await githubService.addLabelToPR(prNumber, labelText);
@@ -31809,26 +31894,42 @@ async function run() {
         catch (error) {
             summaryService.addFailedLabel(prNumber);
         }
+        // Get batch processing parameters
         const batchSize = parseInt(core.getInput("batch-size")) || 5;
         const maxPRCount = parseInt(core.getInput("max-pr-count")) || 10;
+        // Fetch and process related PRs
         const relatedPRs = await githubService.getRelatedPRs(prNumber);
         summaryService.setRelatedPRsCount(relatedPRs.length);
         console.trace("Related PRs found:", relatedPRs);
-        const limitExceeded = relatedPRs.length > maxPRCount;
+        // Process related PRs in batches
         for (let i = 0; i < relatedPRs.length; i += batchSize) {
             const batch = relatedPRs.slice(i, i + batchSize);
-            await Promise.all(batch.map(async (relatedPR) => {
-                try {
-                    if (limitExceeded)
-                        throw new Error("Max PR update limit exceeded");
-                    await githubService.addLabelToPR(relatedPR, labelText);
-                    summaryService.addSuccessfulLabel(relatedPR);
-                }
-                catch (error) {
-                    summaryService.addFailedLabel(relatedPR, error instanceof Error ? error.message : "Unknown error");
-                }
-            }));
+            try {
+                await withRetry(async () => {
+                    await Promise.all(batch.map(async (relatedPR, batchIndex) => {
+                        try {
+                            if (i + batchIndex >= maxPRCount) {
+                                summaryService.addFailedLabel(relatedPR, "Max PR update limit exceeded");
+                                return;
+                            }
+                            await githubService.addLabelToPR(relatedPR, labelText);
+                            summaryService.addSuccessfulLabel(relatedPR);
+                        }
+                        catch (error) {
+                            summaryService.addFailedLabel(relatedPR, error instanceof Error ? error.message : "Unknown error");
+                        }
+                    }));
+                }, {
+                    maxAttempts: 3,
+                    initialDelay: 1000,
+                    maxDelay: 10000,
+                });
+            }
+            catch (error) {
+                console.error("Error during batch processing:", error);
+            }
         }
+        // Log final summary
         summaryService.logSummary();
     }
     catch (error) {
@@ -31840,6 +31941,7 @@ async function run() {
         }
     }
 }
+// Execute the action
 run();
 
 var __webpack_exports__run = __webpack_exports__.e;
