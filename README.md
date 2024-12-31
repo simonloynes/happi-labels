@@ -68,13 +68,13 @@ This action requires the following permissions:
 ### Batch Processing
 The action processes closed pull requests in batches to optimize performance and avoid API rate limits:
 
-1. It first fetches up to `max-pr-count` most recent closed PRs
-2. These PRs are then processed in batches of `batch-size`
+1. Related PRs are fetched
+2. These PRs are then processed in batches of `batch-size` up to the limit set by `max-pr-count`
 3. Each batch is processed concurrently for better performance
 
 For example, with default settings:
 - `max-pr-count: 25` and `batch-size: 5` means
-- Up to 25 PRs will be fetched
+- Up to 25 PRs will be labelled
 - They will be processed in 5 batches of 5 PRs each
 
 ### Retry Mechanism
@@ -83,7 +83,7 @@ The action includes a built-in retry mechanism for resilience:
 - Failed API calls are automatically retried up to 3 times
 - Each retry attempt uses exponential backoff (increasing delays between attempts)
 - Common transient issues (like rate limits or network hiccups) are handled gracefully
-- Failed attempts are logged in the summary when `log-summary: true`
+- Failed attempts are logged
 
 ## Troubleshooting
 
@@ -92,7 +92,6 @@ The action includes a built-in retry mechanism for resilience:
 1. If labels aren't being added, check that:
    - The workflow has the correct permissions
    - The github-token is properly configured
-   - The PR is actually closed (not just merged)
    - The label you wish to apply exists in the repo
 
 2. If processing seems slow:
