@@ -1,7 +1,6 @@
 {
   "branches": [
-    {"name": "main"},
-    {"name": "release", "channel": "release"}
+    {"name": "main"}
   ],
   "plugins": [
     "@semantic-release/commit-analyzer",
@@ -9,7 +8,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "git checkout release && git merge main && pnpm run build && git add dist && git commit -m 'chore: update build output' || true && git push origin release"
+        "prepareCmd": "git checkout main && pnpm run build && git add dist && git commit -m 'chore: update build output' || true && git push origin main"
       }
     ]
   ],
