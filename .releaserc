@@ -8,7 +8,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "git checkout main && pnpm run build && git add dist && git commit -m 'chore: update build output [skip ci]' || true && git push origin main"
+        "prepareCmd": "git checkout main && git pull origin main && pnpm run build && git add dist && git commit -m 'chore: update build output [skip ci]' || true && git push origin main"
       }
     ]
   ],
