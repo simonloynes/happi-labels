@@ -160,6 +160,8 @@ export class GitHubService {
         }
       `);
 
+      console.log('GraphQL response for linked issues:', JSON.stringify(searchResults, null, 2));
+
       searchResults.repository.pullRequest.closingIssuesReferences.nodes.forEach(issue => {
         linkedIssues.add(issue.number);
       });
@@ -168,6 +170,7 @@ export class GitHubService {
       cursor = searchResults.repository.pullRequest.closingIssuesReferences.pageInfo.endCursor;
     }
 
+    console.log('Final linked issues:', Array.from(linkedIssues));
     return Array.from(linkedIssues);
   }
 } 
