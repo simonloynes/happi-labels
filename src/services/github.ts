@@ -1,4 +1,5 @@
 import { getOctokit } from '@actions/github';
+import * as core from '@actions/core';
 
 // Define the expected response structure
 interface SearchResponse {
@@ -141,7 +142,7 @@ export class GitHubService {
     let hasNextPage = true;
     let cursor: string | null = null;
 
-    console.log(`Starting getLinkedIssues for PR #${issueNum}`);
+    core.info(`Starting getLinkedIssues for PR #${issueNum}`);
     
     while (hasNextPage) {
       try {
@@ -163,33 +164,32 @@ export class GitHubService {
           }
         `);
 
-        console.log('GraphQL response:', JSON.stringify(searchResults, null, 2));
+        core.info('GraphQL response: ' + JSON.stringify(searchResults, null, 2));
 
-        // Safely access nested properties
         const nodes = searchResults?.repository?.pullRequest?.closingIssuesReferences?.nodes;
         if (!nodes || !Array.isArray(nodes)) {
-          console.error('Invalid response structure:', searchResults);
+          core.error('Invalid response structure: ' + JSON.stringify(searchResults));
           break;
         }
 
         nodes.forEach(issue => {
           if (issue && typeof issue.number === 'number') {
+            core.info(`Found linked issue #${issue.number}`);
             linkedIssues.add(issue.number);
           }
         });
 
-        const pageInfo = searchResults?.repository?.pullRequest?.closingIssuesReferences?.pageInfo;
-        hasNextPage = pageInfo?.hasNextPage ?? false;
-        cursor = pageInfo?.endCursor ?? null;
+        hasNextPage = searchResults?.repository?.pullRequest?.closingIssuesReferences?.pageInfo?.hasNextPage ?? false;
+        cursor = searchResults?.repository?.pullRequest?.closingIssuesReferences?.pageInfo?.endCursor ?? null;
 
       } catch (error) {
-        console.error('Error in getLinkedIssues:', error);
+        core.error('Error in getLinkedIssues: ' + (error instanceof Error ? error.message : String(error)));
         throw error;
       }
     }
 
     const result = Array.from(linkedIssues);
-    console.log('Found linked issues:', result);
+    core.info('Found linked issues: ' + JSON.stringify(result));
     return result;
   }
 } 
