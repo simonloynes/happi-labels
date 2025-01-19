@@ -50,48 +50,44 @@ describe("GitHubService", () => {
   });
 
   describe("getRelatedPRs", () => {
-    it("should return related PR numbers with pagination", async () => {
-      // First call - commits query
+    it("should return related PR numbers", async () => {
       mockOctokit.graphql.mockResolvedValueOnce({
         repository: {
           pullRequest: {
             commits: {
-              nodes: [{ commit: { oid: "commit1" } }],
-            },
-          },
-        },
-      });
-
-      // Second call - first page of PRs
-      mockOctokit.graphql.mockResolvedValueOnce({
-        search: {
-          pageInfo: {
-            hasNextPage: true,
-            endCursor: "cursor1",
-          },
-          nodes: [{ number: 456 }],
-        },
-      });
-
-      // Third call - second page of PRs
-      mockOctokit.graphql.mockResolvedValueOnce({
-        search: {
-          pageInfo: {
-            hasNextPage: false,
-            endCursor: null,
-          },
-          nodes: [{ number: 789 }],
-        },
+              nodes: [
+                {
+                  commit: {
+                    oid: "commit1",
+                    associatedPullRequests: {
+                      nodes: [
+                        { number: 123 }, // Original PR
+                        { number: 456 }  // Related PR
+                      ]
+                    }
+                  }
+                },
+                {
+                  commit: {
+                    oid: "commit2",
+                    associatedPullRequests: {
+                      nodes: [
+                        { number: 123 }, // Original PR
+                        { number: 789 }  // Another related PR
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
       });
 
       const result = await githubService.getRelatedPRs(123);
-
       expect(result).toEqual([456, 789]);
-      expect(mockOctokit.graphql).toHaveBeenNthCalledWith(1, expect.stringMatching(
-        /repository.*owner:\s*"testOwner".*name:\s*"testRepo".*pullRequest.*number:\s*123.*commits.*first:\s*100.*oid/s
-      ));
-      expect(mockOctokit.graphql).toHaveBeenNthCalledWith(2, expect.stringMatching(
-        /search.*query:\s*"repo:testOwner\/testRepo\s+type:pr\s+state:open\s+commit1".*type:\s*ISSUE.*first:\s*100/s
+      expect(mockOctokit.graphql).toHaveBeenCalledWith(expect.stringMatching(
+        /repository.*pullRequest.*commits.*associatedPullRequests.*states:\s*OPEN/s
       ));
     });
 
@@ -116,25 +112,31 @@ describe("GitHubService", () => {
           pullRequest: {
             commits: {
               nodes: [
-                { commit: { oid: 'commit1' } },
-                { commit: { oid: 'commit2' } }
+                {
+                  commit: {
+                    oid: 'commit1',
+                    associatedPullRequests: {
+                      nodes: [
+                        { number: 123 },
+                        { number: 456 }
+                      ]
+                    }
+                  }
+                },
+                {
+                  commit: {
+                    oid: 'commit2',
+                    associatedPullRequests: {
+                      nodes: [
+                        { number: 123 },
+                        { number: 456 } // Same PR number as above
+                      ]
+                    }
+                  }
+                }
               ]
             }
           }
-        }
-      });
-
-      // Both commits return the same PR
-      mockOctokit.graphql.mockResolvedValueOnce({
-        search: {
-          pageInfo: { hasNextPage: false },
-          nodes: [{ number: 456 }]
-        }
-      });
-      mockOctokit.graphql.mockResolvedValueOnce({
-        search: {
-          pageInfo: { hasNextPage: false },
-          nodes: [{ number: 456 }]
         }
       });
 

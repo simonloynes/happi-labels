@@ -38,6 +38,11 @@ interface PullRequestCommitsResponse {
         nodes: Array<{
           commit: {
             oid: string;
+            associatedPullRequests: {
+              nodes: Array<{
+                number: number;
+              }>;
+            };
           };
         }>;
       };
@@ -83,6 +88,11 @@ export class GitHubService {
               nodes {
                 commit {
                   oid
+                  associatedPullRequests(first: 100, states: OPEN) {
+                    nodes {
+                      number
+                    }
+                  }
                 }
               }
             }
@@ -92,41 +102,13 @@ export class GitHubService {
     `);
 
     const commits = commitResults.repository.pullRequest.commits.nodes;
-
     for (const { commit } of commits) {
-      let hasNextPage = true;
-      let cursor: string | null = null;
-
-      while (hasNextPage) {
-        const searchResults: SearchResponse = await this.octokit.graphql<SearchResponse>(`
-          query {
-            search(
-              query: "repo:${this.owner}/${this.repo} type:pr state:open ${commit.oid}",
-              type: ISSUE,
-              first: 100
-              ${cursor ? `after: "${cursor}"` : ''}
-            ) {
-              pageInfo {
-                hasNextPage
-                endCursor
-              }
-              nodes {
-                ... on PullRequest {
-                  number
-                }
-              }
-            }
-          }
-        `);
-        
-        searchResults.search.nodes.forEach(pr => {
+      if (commit.associatedPullRequests) {
+        commit.associatedPullRequests.nodes.forEach(pr => {
           if (pr.number !== issueNum) {
             relatedPRs.add(pr.number);
           }
         });
-
-        hasNextPage = searchResults.search.pageInfo.hasNextPage;
-        cursor = searchResults.search.pageInfo.endCursor;
       }
     }
 
