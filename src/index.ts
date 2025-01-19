@@ -54,7 +54,7 @@ export async function run(): Promise<void> {
 
     // Fetch and process related PRs
     const relatedPRs = await githubService.getRelatedPRs(prNumber);
-    const relatedIssues = await githubService.getRelatedIssues(prNumber);
+    const relatedIssues = await githubService.getLinkedIssues(prNumber);
     summaryService.setRelatedPRsCount(relatedPRs.length);
     console.trace("Related PRs found:", relatedPRs);
     console.trace("Related Issues found:", relatedIssues);

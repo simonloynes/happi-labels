@@ -1,5 +1,48 @@
 import { getOctokit } from '@actions/github';
 
+// Define the expected response structure
+interface SearchResponse {
+  search: {
+    pageInfo: {
+      hasNextPage: boolean;
+      endCursor: string;
+    };
+    nodes: Array<{
+      number: number;
+    }>;
+  };
+}
+
+interface PullRequestResponse {
+  repository: {
+    pullRequest: {
+      closingIssuesReferences: {
+        pageInfo: {
+          hasNextPage: boolean;
+          endCursor: string;
+        };
+        nodes: Array<{
+          number: number;
+        }>;
+      };
+    };
+  };
+}
+
+interface PullRequestCommitsResponse {
+  repository: {
+    pullRequest: {
+      commits: {
+        nodes: Array<{
+          commit: {
+            oid: string;
+          };
+        }>;
+      };
+    };
+  };
+}
+
 export class GitHubService {
   constructor(
     private octokit: ReturnType<typeof getOctokit>,
@@ -22,51 +65,109 @@ export class GitHubService {
     }
   }
 
+  /**
+    * Derives a list of Pull Requests that are related to commits that are affected by the provided Pull Request
+   * @param issueNum Number of the root PR
+   * @returns a list of related pull requests
+   */
   async getRelatedPRs(issueNum: number): Promise<number[]> {
     const relatedPRs = new Set<number>();
-
-    const { data: commits } = await this.octokit.rest.pulls.listCommits({
-      owner: this.owner,
-      repo: this.repo,
-      pull_number: issueNum
-    });
-
-    for (const commit of commits) {
-      const { data: searchResults } = await this.octokit.rest.search.issuesAndPullRequests({
-        q: `repo:${this.owner}/${this.repo} type:pr ${commit.sha}`
-      });
-
-      searchResults.items.forEach(pr => {
-        if (pr.number !== issueNum) {
-          relatedPRs.add(pr.number);
+    
+    const commitResults = await this.octokit.graphql<PullRequestCommitsResponse>(`
+      query {
+        repository(owner: "${this.owner}", name: "${this.repo}") {
+          pullRequest(number: ${issueNum}) {
+            commits(first: 100) {
+              nodes {
+                commit {
+                  oid
+                }
+              }
+            }
+          }
         }
-      });
+      }
+    `);
+
+    const commits = commitResults.repository.pullRequest.commits.nodes;
+
+    for (const { commit } of commits) {
+      let hasNextPage = true;
+      let cursor: string | null = null;
+
+      while (hasNextPage) {
+        const searchResults: SearchResponse = await this.octokit.graphql<SearchResponse>(`
+          query {
+            search(
+              query: "repo:${this.owner}/${this.repo} type:pr ${commit.oid}",
+              type: ISSUE,
+              first: 100
+              ${cursor ? `after: "${cursor}"` : ''}
+            ) {
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+              nodes {
+                ... on PullRequest {
+                  number
+                }
+              }
+            }
+          }
+        `);
+        
+        searchResults.search.nodes.forEach(pr => {
+          if (pr.number !== issueNum) {
+            relatedPRs.add(pr.number);
+          }
+        });
+
+        hasNextPage = searchResults.search.pageInfo.hasNextPage;
+        cursor = searchResults.search.pageInfo.endCursor;
+      }
     }
 
     return Array.from(relatedPRs);
   }
 
-  async getRelatedIssues(issueNum: number): Promise<number[]> {
-    const relatedIssues = new Set<number>();
+  /**
+   * Derives a list of Issues that are linked and closed by the provided Pull Request
+   * @param issueNum Number of the root PR
+   * @returns a list of related issues
+   */
+  async getLinkedIssues(issueNum: number): Promise<number[]> {
+    const linkedIssues = new Set<number>();
+    let hasNextPage = true;
+    let cursor: string | null = null;
 
-    const { data: commits } = await this.octokit.rest.pulls.listCommits({
-      owner: this.owner,
-      repo: this.repo,
-      pull_number: issueNum
-    });
-
-    for (const commit of commits) {
-      const { data: searchResults } = await this.octokit.rest.search.issuesAndPullRequests({
-        q: `repo:${this.owner}/${this.repo} type:issue ${commit.sha}`
-      });
-
-      searchResults.items.forEach(issue => {
-        if (issue.number !== issueNum) {
-          relatedIssues.add(issue.number);
+    while (hasNextPage) {
+      const searchResults: PullRequestResponse = await this.octokit.graphql<PullRequestResponse>(`
+        query {
+          repository(owner: "${this.owner}", name: "${this.repo}") {
+            pullRequest(number: ${issueNum}) {
+              closingIssuesReferences(first: 100 ${cursor ? `, after: "${cursor}"` : ''}) {
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+                nodes {
+                  number
+                }
+              }
+            }
+          }
         }
+      `);
+
+      searchResults.repository.pullRequest.closingIssuesReferences.nodes.forEach(issue => {
+        linkedIssues.add(issue.number);
       });
+
+      hasNextPage = searchResults.repository.pullRequest.closingIssuesReferences.pageInfo.hasNextPage;
+      cursor = searchResults.repository.pullRequest.closingIssuesReferences.pageInfo.endCursor;
     }
 
-    return Array.from(relatedIssues);
+    return Array.from(linkedIssues);
   }
 } 
