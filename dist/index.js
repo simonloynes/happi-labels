@@ -31704,39 +31704,58 @@ class GitHubService {
         this.owner = owner;
         this.repo = repo;
     }
-    async addLabelToPR(prNum, labelText) {
+    async addLabel(issueNum, labelText) {
         try {
             await this.octokit.rest.issues.addLabels({
                 owner: this.owner,
                 repo: this.repo,
-                issue_number: prNum,
+                issue_number: issueNum,
                 labels: [labelText]
             });
-            console.log(`Successfully added label to PR #${prNum}`);
+            console.log(`Successfully added label to PR #${issueNum}`);
         }
         catch (error) {
-            console.error(`Error adding label to PR #${prNum}:`, error);
+            console.error(`Error adding label to PR #${issueNum}:`, error);
             throw error;
         }
     }
-    async getRelatedPRs(prNumber) {
+    async getRelatedPRs(issueNum) {
         const relatedPRs = new Set();
         const { data: commits } = await this.octokit.rest.pulls.listCommits({
             owner: this.owner,
             repo: this.repo,
-            pull_number: prNumber
+            pull_number: issueNum
         });
         for (const commit of commits) {
             const { data: searchResults } = await this.octokit.rest.search.issuesAndPullRequests({
                 q: `repo:${this.owner}/${this.repo} type:pr ${commit.sha}`
             });
             searchResults.items.forEach(pr => {
-                if (pr.number !== prNumber) {
+                if (pr.number !== issueNum) {
                     relatedPRs.add(pr.number);
                 }
             });
         }
         return Array.from(relatedPRs);
+    }
+    async getRelatedIssues(issueNum) {
+        const relatedIssues = new Set();
+        const { data: commits } = await this.octokit.rest.pulls.listCommits({
+            owner: this.owner,
+            repo: this.repo,
+            pull_number: issueNum
+        });
+        for (const commit of commits) {
+            const { data: searchResults } = await this.octokit.rest.search.issuesAndPullRequests({
+                q: `repo:${this.owner}/${this.repo} type:issue ${commit.sha}`
+            });
+            searchResults.items.forEach(issue => {
+                if (issue.number !== issueNum) {
+                    relatedIssues.add(issue.number);
+                }
+            });
+        }
+        return Array.from(relatedIssues);
     }
 }
 
@@ -31888,7 +31907,7 @@ async function run() {
         // Add label to the triggering PR
         console.trace(`Adding label ${labelText} to PR: ${prNumber}`);
         try {
-            await githubService.addLabelToPR(prNumber, labelText);
+            await githubService.addLabel(prNumber, labelText);
             summaryService.addSuccessfulLabel(prNumber);
         }
         catch (error) {
@@ -31896,11 +31915,13 @@ async function run() {
         }
         // Get batch processing parameters
         const batchSize = parseInt(core.getInput("batch-size")) || 5;
-        const maxPRCount = parseInt(core.getInput("max-pr-count")) || 10;
+        const maxIssueCount = parseInt(core.getInput("max-issue-count")) || 10;
         // Fetch and process related PRs
         const relatedPRs = await githubService.getRelatedPRs(prNumber);
+        const relatedIssues = await githubService.getRelatedIssues(prNumber);
         summaryService.setRelatedPRsCount(relatedPRs.length);
         console.trace("Related PRs found:", relatedPRs);
+        console.trace("Related Issues found:", relatedIssues);
         // Process related PRs in batches
         for (let i = 0; i < relatedPRs.length; i += batchSize) {
             const batch = relatedPRs.slice(i, i + batchSize);
@@ -31908,11 +31929,11 @@ async function run() {
                 await withRetry(async () => {
                     await Promise.all(batch.map(async (relatedPR, batchIndex) => {
                         try {
-                            if (i + batchIndex >= maxPRCount) {
+                            if (i + batchIndex >= maxIssueCount) {
                                 summaryService.addFailedLabel(relatedPR, "Max PR update limit exceeded");
                                 return;
                             }
-                            await githubService.addLabelToPR(relatedPR, labelText);
+                            await githubService.addLabel(relatedPR, labelText);
                             summaryService.addSuccessfulLabel(relatedPR);
                         }
                         catch (error) {
@@ -31926,7 +31947,35 @@ async function run() {
                 });
             }
             catch (error) {
-                console.error("Error during batch processing:", error);
+                console.error("Error during batch processing of pull requests:", error);
+            }
+        }
+        // Process related issues in batches
+        for (let i = 0; i < relatedIssues.length; i += batchSize) {
+            const batch = relatedIssues.slice(i, i + batchSize);
+            try {
+                await withRetry(async () => {
+                    await Promise.all(batch.map(async (issue, batchIndex) => {
+                        if (i + batchIndex >= maxIssueCount) {
+                            summaryService.addFailedLabel(issue, "Max issue update limit exceeded");
+                            return;
+                        }
+                        try {
+                            await githubService.addLabel(issue, labelText);
+                            summaryService.addSuccessfulLabel(issue);
+                        }
+                        catch (error) {
+                            summaryService.addFailedLabel(issue, error instanceof Error ? error.message : "Unknown error");
+                        }
+                    }));
+                }, {
+                    maxAttempts: 3,
+                    initialDelay: 1000,
+                    maxDelay: 10000,
+                });
+            }
+            catch (error) {
+                console.error("Error during batch processing of related issues:", error);
             }
         }
         // Log final summary
