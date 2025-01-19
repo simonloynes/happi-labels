@@ -94,6 +94,53 @@ describe("GitHubService", () => {
         /search.*query:\s*"repo:testOwner\/testRepo\s+type:pr\s+commit1".*type:\s*ISSUE.*first:\s*100.*pageInfo.*hasNextPage.*endCursor.*nodes.*PullRequest.*number/s
       ));
     });
+
+    it("should handle empty commits response", async () => {
+      mockOctokit.graphql.mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            commits: {
+              nodes: []
+            }
+          }
+        }
+      });
+
+      const result = await githubService.getRelatedPRs(123);
+      expect(result).toEqual([]);
+    });
+
+    it("should deduplicate PR numbers", async () => {
+      mockOctokit.graphql.mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            commits: {
+              nodes: [
+                { commit: { oid: 'commit1' } },
+                { commit: { oid: 'commit2' } }
+              ]
+            }
+          }
+        }
+      });
+
+      // Both commits return the same PR
+      mockOctokit.graphql.mockResolvedValueOnce({
+        search: {
+          pageInfo: { hasNextPage: false },
+          nodes: [{ number: 456 }]
+        }
+      });
+      mockOctokit.graphql.mockResolvedValueOnce({
+        search: {
+          pageInfo: { hasNextPage: false },
+          nodes: [{ number: 456 }]
+        }
+      });
+
+      const result = await githubService.getRelatedPRs(123);
+      expect(result).toEqual([456]);
+    });
   });
 
   describe("getLinkedIssues", () => {
@@ -137,6 +184,22 @@ describe("GitHubService", () => {
       expect(mockOctokit.graphql).toHaveBeenNthCalledWith(2, expect.stringMatching(
         /repository.*owner:\s*"testOwner".*name:\s*"testRepo".*pullRequest.*number:\s*123.*closingIssuesReferences.*first:\s*100.*after:\s*"cursor1".*pageInfo.*hasNextPage.*endCursor.*nodes.*number/s
       ));
+    });
+
+    it("should handle empty issues response", async () => {
+      mockOctokit.graphql.mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            closingIssuesReferences: {
+              pageInfo: { hasNextPage: false },
+              nodes: []
+            }
+          }
+        }
+      });
+
+      const result = await githubService.getLinkedIssues(123);
+      expect(result).toEqual([]);
     });
   });
 });

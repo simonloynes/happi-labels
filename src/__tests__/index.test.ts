@@ -11,53 +11,101 @@ vi.mock("../services/github");
 vi.mock("../services/summary");
 
 describe("run function", () => {
+  let mockGitHubService: GitHubService;
+
+  const setupMockInputs = (overrides: Record<string, string> = {}) => {
+    vi.mocked(core.getInput).mockImplementation((name: string) => {
+      const defaults: Record<string, string> = {
+        "github-token": "mock-token",
+        "label-prefix": "Released on @",
+        "log-summary": "true",
+        "batch-size": "5",
+        "max-issue-count": "5",
+      };
+      return overrides[name] ?? defaults[name] ?? "";
+    });
+  };
+
+  const setupGitHubService = (mockData = {}) => {
+    mockGitHubService = {
+      addLabel: vi.fn(),
+      getRelatedPRs: vi.fn().mockResolvedValue([]),
+      getLinkedIssues: vi.fn().mockResolvedValue([]),
+      ...mockData
+    } as unknown as GitHubService;
+
+    vi.mocked(GitHubService).mockImplementation(() => mockGitHubService);
+    return mockGitHubService;
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Default mock implementations
-    vi.mocked(core.getInput).mockImplementation((name) => {
-      switch (name) {
-        case "github-token":
-          return "mock-token";
-        case "label-prefix":
-          return "Released on @";
-        case "log-summary":
-          return "true";
-        case "batch-size":
-          return "5";
-        case "max-issue-count":
-          return "5";
-        default:
-          return "";
-      }
-    });
+    setupMockInputs();
 
     // Setup default GitHub context
-    github.context.payload.pull_request = {
-      number: 123,
-      base: { ref: "main" },
-    } as any;
-
-    // Create a new context object
-    const mockContext = {
+    (github.context as any) = {
       ...github.context,
+      payload: {
+        pull_request: {
+          number: 123,
+          base: { ref: "main" },
+        }
+      },
       repo: {
         owner: "test-owner",
         repo: "test-repo",
-      },
+      }
     };
 
-    // Assign the new context to github.context
-    (github.context as any) = mockContext; // Use 'as any' to bypass TypeScript's read-only check
+    setupGitHubService();
+  });
 
-    // Mock GitHub service
-    const mockGitHubService = {
-      addLabel: vi.fn(),
+  it("should correctly process PRs and issues from GraphQL API", async () => {
+    setupGitHubService({
       getRelatedPRs: vi.fn().mockResolvedValue([1, 2, 3]),
-      getRelatedIssues: vi.fn().mockResolvedValue([101, 102, 103]),
-    } as unknown as GitHubService; // Cast to GitHubService type
+      getLinkedIssues: vi.fn().mockResolvedValue([101, 102])
+    });
 
-    vi.mocked(GitHubService).mockImplementation(() => mockGitHubService);
+    await run();
+
+    expect(mockGitHubService.getRelatedPRs).toHaveBeenCalledWith(123);
+    expect(mockGitHubService.getLinkedIssues).toHaveBeenCalledWith(123);
+
+    // Verify labels were added in the correct order
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(1, 123, "Released on @main");  // Original PR
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(2, 1, "Released on @main");    // Related PRs
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(3, 2, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(4, 3, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(5, 101, "Released on @main");  // Linked Issues
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(6, 102, "Released on @main");
+
+    expect((mockGitHubService.addLabel as ReturnType<typeof vi.fn>).mock.calls.length).toBe(6);
+  });
+
+  it("should respect max issue count limit with GraphQL results", async () => {
+    setupGitHubService({
+      getRelatedPRs: vi.fn().mockResolvedValue([1, 2, 3, 4, 5, 6]),
+      getLinkedIssues: vi.fn().mockResolvedValue([101, 102, 103, 104, 105, 106])
+    });
+
+    setupMockInputs({ "max-issue-count": "5" });
+
+    await run();
+
+    // Verify individual calls in order
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(1, 123, "Released on @main");  // Original PR
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(2, 1, "Released on @main");    // Related PRs
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(3, 2, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(4, 3, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(5, 4, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(6, 5, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(7, 101, "Released on @main");  // Linked Issues
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(8, 102, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(9, 103, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(10, 104, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(11, 105, "Released on @main");
+
+    expect((mockGitHubService.addLabel as ReturnType<typeof vi.fn>).mock.calls.length).toBe(11);
   });
 
   it("should throw an error if not run in a pull request context", async () => {
@@ -69,59 +117,60 @@ describe("run function", () => {
   });
 
   it("should use default values for optional inputs", async () => {
-    vi.mocked(core.getInput).mockImplementation((name) => {
-      if (name === "github-token") return "mock-token";
-      return "";
+    setupGitHubService({
+      getRelatedPRs: vi.fn().mockResolvedValue([1, 2, 3]),
+      getLinkedIssues: vi.fn().mockResolvedValue([101, 102])
     });
+
+    setupMockInputs({ "github-token": "mock-token" }); // Only set required token
 
     await run();
 
-    // Verify default batch size of 5 is used
-    expect(vi.mocked(core.getInput)).toHaveBeenCalledWith("batch-size");
+    // Verify labels were added in the correct order with default values
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(1, 123, "Released on @main");  // Original PR
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(2, 1, "Released on @main");    // Related PRs
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(3, 2, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(4, 3, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(5, 101, "Released on @main");  // Linked Issues
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(6, 102, "Released on @main");
 
-    // Verify default max PR count of 10 is used
-    expect(vi.mocked(core.getInput)).toHaveBeenCalledWith("max-issue-count");
+    expect((mockGitHubService.addLabel as ReturnType<typeof vi.fn>).mock.calls.length).toBe(6);
+    
+    // Verify default values were used
+    expect(core.getInput).toHaveBeenCalledWith("batch-size");
+    expect(core.getInput).toHaveBeenCalledWith("max-issue-count");
   });
 
   it("should correctly process valid inputs", async () => {
     const mockGitHubService = {
       addLabel: vi.fn(),
       getRelatedPRs: vi.fn().mockResolvedValue([1, 2, 3]),
-      getRelatedIssues: vi.fn().mockResolvedValue([101, 102, 103]),
-    } as unknown as GitHubService; // Cast to GitHubService type
+      getLinkedIssues: vi.fn().mockResolvedValue([101, 102, 103]),
+    } as unknown as GitHubService;
+    
     vi.mocked(GitHubService).mockImplementation(() => mockGitHubService);
 
     await run();
 
-    // Verify label is created with correct prefix for PR
-    expect(mockGitHubService.addLabel).toHaveBeenCalledWith(
-      123,
-      "Released on @main"
-    );
+    // Verify labels were added in the correct order
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(1, 123, "Released on @main");  // Original PR
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(2, 1, "Released on @main");    // Related PRs
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(3, 2, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(4, 3, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(5, 101, "Released on @main");  // Linked Issues
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(6, 102, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(7, 103, "Released on @main");
 
-    // Verify label is created with correct prefix for issues
-    expect(mockGitHubService.addLabel).toHaveBeenCalledWith(
-      101,
-      "Released on @main"
-    );
-    expect(mockGitHubService.addLabel).toHaveBeenCalledWith(
-      102,
-      "Released on @main"
-    );
-    expect(mockGitHubService.addLabel).toHaveBeenCalledWith(
-      103,
-      "Released on @main"
-    );
+    expect((mockGitHubService.addLabel as ReturnType<typeof vi.fn>).mock.calls.length).toBe(7);
   });
 
   it("should handle max Issue count limit", async () => {
     const mockGitHubService = {
       addLabel: vi.fn(),
-      getRelatedPRs: vi
-        .fn()
-        .mockResolvedValue([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-      getRelatedIssues: vi.fn().mockResolvedValue([101, 102, 103, 104, 105, 106]),
+      getRelatedPRs: vi.fn().mockResolvedValue([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+      getLinkedIssues: vi.fn().mockResolvedValue([101, 102, 103, 104, 105, 106])
     } as unknown as GitHubService;
+
     vi.mocked(GitHubService).mockImplementation(() => mockGitHubService);
 
     vi.mocked(core.getInput).mockImplementation((name) => {
@@ -132,6 +181,10 @@ describe("run function", () => {
           return "5";
         case "label-prefix":
           return "Released on @";
+        case "batch-size":
+          return "5";
+        case "log-summary":
+          return "true";
         default:
           return "";
       }
@@ -139,33 +192,29 @@ describe("run function", () => {
 
     await run();
 
-    // Verify that addLabel is called only for PRs within the limit
-    expect(mockGitHubService.addLabel).toHaveBeenCalledTimes(11);
-
-    // First call should be for the original PR
-    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(1, 123, "Released on @main");
-
-    // Subsequent calls should be for the first 5 related PRs
-    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(2, 1, "Released on @main");
+    // Verify individual calls in order
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(1, 123, "Released on @main");  // Original PR
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(2, 1, "Released on @main");    // First 5 PRs
     expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(3, 2, "Released on @main");
     expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(4, 3, "Released on @main");
     expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(5, 4, "Released on @main");
     expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(6, 5, "Released on @main");
-   
-    // Subsequent calls should be for the first 5 related Issues
-    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(7, 101, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(7, 101, "Released on @main");  // First 5 Issues
     expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(8, 102, "Released on @main");
     expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(9, 103, "Released on @main");
     expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(10, 104, "Released on @main");
     expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(11, 105, "Released on @main");
+
+    expect((mockGitHubService.addLabel as ReturnType<typeof vi.fn>).mock.calls.length).toBe(11);
   });
 
   it("should process PRs and issues in correct batch sizes", async () => {
     const mockGitHubService = {
       addLabel: vi.fn(),
       getRelatedPRs: vi.fn().mockResolvedValue([1, 2, 3, 4, 5, 6, 7]),
-      getRelatedIssues: vi.fn().mockResolvedValue([101, 102, 103, 104, 105, 106]),
-    } as unknown as GitHubService; // Cast to GitHubService type
+      getLinkedIssues: vi.fn().mockResolvedValue([101, 102, 103, 104, 105, 106])
+    } as unknown as GitHubService;
+
     vi.mocked(GitHubService).mockImplementation(() => mockGitHubService);
 
     vi.mocked(core.getInput).mockImplementation((name) => {
@@ -174,6 +223,12 @@ describe("run function", () => {
           return "mock-token";
         case "batch-size":
           return "3";
+        case "max-issue-count":
+          return "10";
+        case "label-prefix":
+          return "Released on @";
+        case "log-summary":
+          return "true";
         default:
           return "";
       }
@@ -181,8 +236,22 @@ describe("run function", () => {
 
     await run();
 
-    // Verify that PRs and issues are processed in batches
-    expect(mockGitHubService.addLabel).toHaveBeenCalled();
-    expect(mockGitHubService.addLabel).toHaveBeenCalledTimes(14);
+    // Verify labels were added in the correct order
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(1, 123, "Released on @main");  // Original PR
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(2, 1, "Released on @main");    // First batch PRs
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(3, 2, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(4, 3, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(5, 4, "Released on @main");    // Second batch PRs
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(6, 5, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(7, 6, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(8, 7, "Released on @main");    // Final PR
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(9, 101, "Released on @main");  // First batch issues
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(10, 102, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(11, 103, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(12, 104, "Released on @main"); // Second batch issues
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(13, 105, "Released on @main");
+    expect(mockGitHubService.addLabel).toHaveBeenNthCalledWith(14, 106, "Released on @main");
+
+    expect((mockGitHubService.addLabel as ReturnType<typeof vi.fn>).mock.calls.length).toBe(14);
   });
 });
