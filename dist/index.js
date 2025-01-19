@@ -31750,7 +31750,7 @@ class GitHubService {
                 const searchResults = await this.octokit.graphql(`
           query {
             search(
-              query: "repo:${this.owner}/${this.repo} type:pr ${commit.oid}",
+              query: "repo:${this.owner}/${this.repo} type:pr state:open ${commit.oid}",
               type: ISSUE,
               first: 100
               ${cursor ? `after: "${cursor}"` : ''}
@@ -31801,6 +31801,7 @@ class GitHubService {
                   }
                   nodes {
                     number
+                    state
                   }
                 }
               }
@@ -31814,8 +31815,8 @@ class GitHubService {
                     break;
                 }
                 nodes.forEach(issue => {
-                    if (issue && typeof issue.number === 'number') {
-                        core.info(`Found linked issue #${issue.number}`);
+                    if (issue && typeof issue.number === 'number' && issue.state === 'OPEN') {
+                        core.info(`Found open linked issue #${issue.number}`);
                         linkedIssues.add(issue.number);
                     }
                 });
