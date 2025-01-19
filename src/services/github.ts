@@ -24,6 +24,7 @@ interface PullRequestResponse {
         };
         nodes: Array<{
           number: number;
+          state: string;
         }>;
       };
     };
@@ -100,7 +101,7 @@ export class GitHubService {
         const searchResults: SearchResponse = await this.octokit.graphql<SearchResponse>(`
           query {
             search(
-              query: "repo:${this.owner}/${this.repo} type:pr ${commit.oid}",
+              query: "repo:${this.owner}/${this.repo} type:pr state:open ${commit.oid}",
               type: ISSUE,
               first: 100
               ${cursor ? `after: "${cursor}"` : ''}
@@ -157,6 +158,7 @@ export class GitHubService {
                   }
                   nodes {
                     number
+                    state
                   }
                 }
               }
@@ -173,8 +175,8 @@ export class GitHubService {
         }
 
         nodes.forEach(issue => {
-          if (issue && typeof issue.number === 'number') {
-            core.info(`Found linked issue #${issue.number}`);
+          if (issue && typeof issue.number === 'number' && issue.state === 'OPEN') {
+            core.info(`Found open linked issue #${issue.number}`);
             linkedIssues.add(issue.number);
           }
         });

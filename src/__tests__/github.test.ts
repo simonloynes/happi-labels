@@ -91,7 +91,7 @@ describe("GitHubService", () => {
         /repository.*owner:\s*"testOwner".*name:\s*"testRepo".*pullRequest.*number:\s*123.*commits.*first:\s*100.*oid/s
       ));
       expect(mockOctokit.graphql).toHaveBeenNthCalledWith(2, expect.stringMatching(
-        /search.*query:\s*"repo:testOwner\/testRepo\s+type:pr\s+commit1".*type:\s*ISSUE.*first:\s*100.*pageInfo.*hasNextPage.*endCursor.*nodes.*PullRequest.*number/s
+        /search.*query:\s*"repo:testOwner\/testRepo\s+type:pr\s+state:open\s+commit1".*type:\s*ISSUE.*first:\s*100/s
       ));
     });
 
@@ -154,7 +154,7 @@ describe("GitHubService", () => {
                 hasNextPage: true,
                 endCursor: "cursor1",
               },
-              nodes: [{ number: 100 }],
+              nodes: [{ number: 100, state: "OPEN" }],
             },
           },
         },
@@ -169,7 +169,7 @@ describe("GitHubService", () => {
                 hasNextPage: false,
                 endCursor: null,
               },
-              nodes: [{ number: 200 }],
+              nodes: [{ number: 200, state: "OPEN" }],
             },
           },
         },
@@ -179,11 +179,31 @@ describe("GitHubService", () => {
 
       expect(result).toEqual([100, 200]);
       expect(mockOctokit.graphql).toHaveBeenNthCalledWith(1, expect.stringMatching(
-        /repository.*owner:\s*"testOwner".*name:\s*"testRepo".*pullRequest.*number:\s*123.*closingIssuesReferences.*first:\s*100.*pageInfo.*hasNextPage.*endCursor.*nodes.*number/s
+        /repository.*owner:\s*"testOwner".*name:\s*"testRepo".*pullRequest.*number:\s*123.*closingIssuesReferences.*first:\s*100.*state/s
       ));
       expect(mockOctokit.graphql).toHaveBeenNthCalledWith(2, expect.stringMatching(
         /repository.*owner:\s*"testOwner".*name:\s*"testRepo".*pullRequest.*number:\s*123.*closingIssuesReferences.*first:\s*100.*after:\s*"cursor1".*pageInfo.*hasNextPage.*endCursor.*nodes.*number/s
       ));
+    });
+
+    it("should filter out closed issues", async () => {
+      mockOctokit.graphql.mockResolvedValueOnce({
+        repository: {
+          pullRequest: {
+            closingIssuesReferences: {
+              pageInfo: { hasNextPage: false },
+              nodes: [
+                { number: 100, state: "OPEN" },
+                { number: 101, state: "CLOSED" },
+                { number: 102, state: "OPEN" }
+              ]
+            }
+          }
+        }
+      });
+
+      const result = await githubService.getLinkedIssues(123);
+      expect(result).toEqual([100, 102]);
     });
 
     it("should handle empty issues response", async () => {
