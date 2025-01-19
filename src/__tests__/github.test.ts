@@ -34,7 +34,7 @@ describe('GitHubService', () => {
     it('should successfully add a label to a PR', async () => {
       mockOctokit.rest.issues.addLabels.mockResolvedValue({ status: 200 });
 
-      await githubService.addLabelToPR(123, 'test-label');
+      await githubService.addLabel(123, 'test-label');
 
       expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledWith({
         owner: 'testOwner',
@@ -48,7 +48,7 @@ describe('GitHubService', () => {
       const error = new Error('API Error');
       mockOctokit.rest.issues.addLabels.mockRejectedValue(error);
 
-      await expect(githubService.addLabelToPR(123, 'test-label')).rejects.toThrow('API Error');
+      await expect(githubService.addLabel(123, 'test-label')).rejects.toThrow('API Error');
     });
   });
 

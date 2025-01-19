@@ -1,8 +1,8 @@
 name: "Happi Labels"
 description: "Adds release labels to merged PRs and related PRs"
 inputs:
-  max-pr-count:
-    description: Maximum number of pull requests we will attempt to label. PR counts exceeding this value will prevent labelling of related PRs.
+  max-issue-count:
+    description: Maximum number of issues or pull requests we will attempt to label. The value is applied each to Issues and Pull Requests
     required: false
     default: "25"
   batch-size:

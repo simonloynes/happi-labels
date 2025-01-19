@@ -42,7 +42,7 @@ export async function run(): Promise<void> {
     // Add label to the triggering PR
     console.trace(`Adding label ${labelText} to PR: ${prNumber}`);
     try {
-      await githubService.addLabelToPR(prNumber, labelText);
+      await githubService.addLabel(prNumber, labelText);
       summaryService.addSuccessfulLabel(prNumber);
     } catch (error) {
       summaryService.addFailedLabel(prNumber);
@@ -50,12 +50,14 @@ export async function run(): Promise<void> {
 
     // Get batch processing parameters
     const batchSize = parseInt(core.getInput("batch-size")) || 5;
-    const maxPRCount = parseInt(core.getInput("max-pr-count")) || 10;
+    const maxIssueCount = parseInt(core.getInput("max-issue-count")) || 10;
 
     // Fetch and process related PRs
     const relatedPRs = await githubService.getRelatedPRs(prNumber);
+    const relatedIssues = await githubService.getRelatedIssues(prNumber);
     summaryService.setRelatedPRsCount(relatedPRs.length);
     console.trace("Related PRs found:", relatedPRs);
+    console.trace("Related Issues found:", relatedIssues);
 
     // Process related PRs in batches
     for (let i = 0; i < relatedPRs.length; i += batchSize) {
@@ -65,11 +67,11 @@ export async function run(): Promise<void> {
           await Promise.all(
             batch.map(async (relatedPR, batchIndex) => {
               try {
-                if (i + batchIndex >= maxPRCount) {
+                if (i + batchIndex >= maxIssueCount) {
                   summaryService.addFailedLabel(relatedPR, "Max PR update limit exceeded");
                   return;
                 }
-                await githubService.addLabelToPR(relatedPR, labelText);
+                await githubService.addLabel(relatedPR, labelText);
                 summaryService.addSuccessfulLabel(relatedPR);
               } catch (error) {
                 summaryService.addFailedLabel(
@@ -85,7 +87,39 @@ export async function run(): Promise<void> {
           maxDelay: 10000,
         });
       } catch (error) {
-        console.error("Error during batch processing:", error);
+        console.error("Error during batch processing of pull requests:", error);
+      }
+    }
+
+    // Process related issues in batches
+    for (let i = 0; i < relatedIssues.length; i += batchSize) {
+      const batch = relatedIssues.slice(i, i + batchSize);
+      try {
+        await withRetry(async () => {
+          await Promise.all(
+            batch.map(async (issue, batchIndex) => {
+              if (i + batchIndex >= maxIssueCount) {
+                summaryService.addFailedLabel(issue, "Max issue update limit exceeded");
+                return;
+              }
+              try {
+                await githubService.addLabel(issue, labelText);
+                summaryService.addSuccessfulLabel(issue);
+              } catch (error) {
+                summaryService.addFailedLabel(
+                  issue,
+                  error instanceof Error ? error.message : "Unknown error"
+                );
+              }
+            })
+          );
+        }, {
+          maxAttempts: 3,
+          initialDelay: 1000,
+          maxDelay: 10000,
+        });
+      } catch (error) {
+        console.error("Error during batch processing of related issues:", error);
       }
     }
 
