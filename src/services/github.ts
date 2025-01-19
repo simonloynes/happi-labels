@@ -41,6 +41,7 @@ interface PullRequestCommitsResponse {
             associatedPullRequests: {
               nodes: Array<{
                 number: number;
+                state: string;
               }>;
             };
           };
@@ -88,9 +89,10 @@ export class GitHubService {
               nodes {
                 commit {
                   oid
-                  associatedPullRequests(first: 100, states: OPEN) {
+                  associatedPullRequests(first: 100) {
                     nodes {
                       number
+                      state
                     }
                   }
                 }
@@ -105,7 +107,7 @@ export class GitHubService {
     for (const { commit } of commits) {
       if (commit.associatedPullRequests) {
         commit.associatedPullRequests.nodes.forEach(pr => {
-          if (pr.number !== issueNum) {
+          if (pr.number !== issueNum && (pr.state === "OPEN" || pr.state === "MERGED")) {
             relatedPRs.add(pr.number);
           }
         });

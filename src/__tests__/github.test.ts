@@ -61,8 +61,8 @@ describe("GitHubService", () => {
                     oid: "commit1",
                     associatedPullRequests: {
                       nodes: [
-                        { number: 123 }, // Original PR
-                        { number: 456 }  // Related PR
+                        { number: 123, state: "OPEN" },   // Open PR
+                        { number: 456, state: "MERGED" }  // Merged PR
                       ]
                     }
                   }
@@ -72,8 +72,8 @@ describe("GitHubService", () => {
                     oid: "commit2",
                     associatedPullRequests: {
                       nodes: [
-                        { number: 123 }, // Original PR
-                        { number: 789 }  // Another related PR
+                        { number: 123, state: "OPEN" },   // Open PR
+                        { number: 789, state: "CLOSED" }  // Closed PR
                       ]
                     }
                   }
@@ -85,9 +85,9 @@ describe("GitHubService", () => {
       });
 
       const result = await githubService.getRelatedPRs(123);
-      expect(result).toEqual([456, 789]);
+      expect(result).toEqual([456]); // Should only include 456 (merged)
       expect(mockOctokit.graphql).toHaveBeenCalledWith(expect.stringMatching(
-        /repository.*pullRequest.*commits.*associatedPullRequests.*states:\s*OPEN/s
+        /repository.*pullRequest.*commits.*associatedPullRequests.*first:\s*100/s
       ));
     });
 
@@ -117,8 +117,8 @@ describe("GitHubService", () => {
                     oid: 'commit1',
                     associatedPullRequests: {
                       nodes: [
-                        { number: 123 },
-                        { number: 456 }
+                        { number: 123, state: "OPEN" },
+                        { number: 456, state: "OPEN" }
                       ]
                     }
                   }
@@ -128,8 +128,8 @@ describe("GitHubService", () => {
                     oid: 'commit2',
                     associatedPullRequests: {
                       nodes: [
-                        { number: 123 },
-                        { number: 456 } // Same PR number as above
+                        { number: 123, state: "OPEN" },
+                        { number: 456, state: "MERGED" } // Same PR number as above
                       ]
                     }
                   }
@@ -141,7 +141,7 @@ describe("GitHubService", () => {
       });
 
       const result = await githubService.getRelatedPRs(123);
-      expect(result).toEqual([456]);
+      expect(result).toEqual([456]); // Should only include 456 (merged)
     });
   });
 
