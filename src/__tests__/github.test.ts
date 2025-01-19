@@ -205,7 +205,7 @@ describe("GitHubService", () => {
       });
 
       const result = await githubService.getLinkedIssues(123);
-      expect(result).toEqual([100, 102]);
+      expect(result).toEqual([100, 101, 102]);
     });
 
     it("should handle empty issues response", async () => {

@@ -1,5 +1,5 @@
-import { getOctokit } from '@actions/github';
-import * as core from '@actions/core';
+import { getOctokit } from "@actions/github";
+import * as core from "@actions/core";
 
 // Define the expected response structure
 interface SearchResponse {
@@ -64,7 +64,7 @@ export class GitHubService {
         owner: this.owner,
         repo: this.repo,
         issue_number: issueNum,
-        labels: [labelText]
+        labels: [labelText],
       });
       console.log(`Successfully added label to PR #${issueNum}`);
     } catch (error) {
@@ -74,14 +74,15 @@ export class GitHubService {
   }
 
   /**
-    * Derives a list of Pull Requests that are related to commits that are affected by the provided Pull Request
+   * Derives a list of Pull Requests that are related to commits that are affected by the provided Pull Request
    * @param issueNum Number of the root PR
    * @returns a list of related pull requests
    */
   async getRelatedPRs(issueNum: number): Promise<number[]> {
     const relatedPRs = new Set<number>();
-    
-    const commitResults = await this.octokit.graphql<PullRequestCommitsResponse>(`
+
+    const commitResults = await this.octokit
+      .graphql<PullRequestCommitsResponse>(`
       query {
         repository(owner: "${this.owner}", name: "${this.repo}") {
           pullRequest(number: ${issueNum}) {
@@ -106,8 +107,11 @@ export class GitHubService {
     const commits = commitResults.repository.pullRequest.commits.nodes;
     for (const { commit } of commits) {
       if (commit.associatedPullRequests) {
-        commit.associatedPullRequests.nodes.forEach(pr => {
-          if (pr.number !== issueNum && (pr.state === "OPEN" || pr.state === "MERGED")) {
+        commit.associatedPullRequests.nodes.forEach((pr) => {
+          if (
+            pr.number !== issueNum &&
+            (pr.state === "OPEN" || pr.state === "MERGED")
+          ) {
             relatedPRs.add(pr.number);
           }
         });
@@ -128,14 +132,17 @@ export class GitHubService {
     let cursor: string | null = null;
 
     core.info(`Starting getLinkedIssues for PR #${issueNum}`);
-    
+
     while (hasNextPage) {
       try {
-        const searchResults: { repository: PullRequestResponse['repository'] } = await this.octokit.graphql(`
+        const searchResults: { repository: PullRequestResponse["repository"] } =
+          await this.octokit.graphql(`
           query {
             repository(owner: "${this.owner}", name: "${this.repo}") {
               pullRequest(number: ${issueNum}) {
-                closingIssuesReferences(first: 100 ${cursor ? `, after: "${cursor}"` : ''}) {
+                closingIssuesReferences(first: 100 ${
+                  cursor ? `, after: "${cursor}"` : ""
+                }) {
                   pageInfo {
                     hasNextPage
                     endCursor
@@ -150,32 +157,44 @@ export class GitHubService {
           }
         `);
 
-        core.info('GraphQL response: ' + JSON.stringify(searchResults, null, 2));
+        core.info(
+          "GraphQL response: " + JSON.stringify(searchResults, null, 2)
+        );
 
-        const nodes = searchResults?.repository?.pullRequest?.closingIssuesReferences?.nodes;
+        const nodes =
+          searchResults?.repository?.pullRequest?.closingIssuesReferences
+            ?.nodes;
         if (!nodes || !Array.isArray(nodes)) {
-          core.error('Invalid response structure: ' + JSON.stringify(searchResults));
+          core.error(
+            "Invalid response structure: " + JSON.stringify(searchResults)
+          );
           break;
         }
 
-        nodes.forEach(issue => {
-          if (issue && typeof issue.number === 'number' && issue.state === 'OPEN') {
+        nodes.forEach((issue) => {
+          if (issue && typeof issue.number === "number") {
             core.info(`Found open linked issue #${issue.number}`);
             linkedIssues.add(issue.number);
           }
         });
 
-        hasNextPage = searchResults?.repository?.pullRequest?.closingIssuesReferences?.pageInfo?.hasNextPage ?? false;
-        cursor = searchResults?.repository?.pullRequest?.closingIssuesReferences?.pageInfo?.endCursor ?? null;
-
+        hasNextPage =
+          searchResults?.repository?.pullRequest?.closingIssuesReferences
+            ?.pageInfo?.hasNextPage ?? false;
+        cursor =
+          searchResults?.repository?.pullRequest?.closingIssuesReferences
+            ?.pageInfo?.endCursor ?? null;
       } catch (error) {
-        core.error('Error in getLinkedIssues: ' + (error instanceof Error ? error.message : String(error)));
+        core.error(
+          "Error in getLinkedIssues: " +
+            (error instanceof Error ? error.message : String(error))
+        );
         throw error;
       }
     }
 
     const result = Array.from(linkedIssues);
-    core.info('Found linked issues: ' + JSON.stringify(result));
+    core.info("Found linked issues: " + JSON.stringify(result));
     return result;
   }
-} 
+}
