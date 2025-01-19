@@ -31695,6 +31695,7 @@ var core = __nccwpck_require__(9999);
 // EXTERNAL MODULE: ./node_modules/.pnpm/@actions+github@6.0.0/node_modules/@actions/github/lib/github.js
 var github = __nccwpck_require__(2819);
 ;// CONCATENATED MODULE: ./src/services/github.ts
+
 class GitHubService {
     octokit;
     owner;
@@ -31719,43 +31720,116 @@ class GitHubService {
             throw error;
         }
     }
+    /**
+      * Derives a list of Pull Requests that are related to commits that are affected by the provided Pull Request
+     * @param issueNum Number of the root PR
+     * @returns a list of related pull requests
+     */
     async getRelatedPRs(issueNum) {
         const relatedPRs = new Set();
-        const { data: commits } = await this.octokit.rest.pulls.listCommits({
-            owner: this.owner,
-            repo: this.repo,
-            pull_number: issueNum
-        });
-        for (const commit of commits) {
-            const { data: searchResults } = await this.octokit.rest.search.issuesAndPullRequests({
-                q: `repo:${this.owner}/${this.repo} type:pr ${commit.sha}`
-            });
-            searchResults.items.forEach(pr => {
-                if (pr.number !== issueNum) {
-                    relatedPRs.add(pr.number);
+        const commitResults = await this.octokit.graphql(`
+      query {
+        repository(owner: "${this.owner}", name: "${this.repo}") {
+          pullRequest(number: ${issueNum}) {
+            commits(first: 100) {
+              nodes {
+                commit {
+                  oid
                 }
-            });
+              }
+            }
+          }
+        }
+      }
+    `);
+        const commits = commitResults.repository.pullRequest.commits.nodes;
+        for (const { commit } of commits) {
+            let hasNextPage = true;
+            let cursor = null;
+            while (hasNextPage) {
+                const searchResults = await this.octokit.graphql(`
+          query {
+            search(
+              query: "repo:${this.owner}/${this.repo} type:pr ${commit.oid}",
+              type: ISSUE,
+              first: 100
+              ${cursor ? `after: "${cursor}"` : ''}
+            ) {
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+              nodes {
+                ... on PullRequest {
+                  number
+                }
+              }
+            }
+          }
+        `);
+                searchResults.search.nodes.forEach(pr => {
+                    if (pr.number !== issueNum) {
+                        relatedPRs.add(pr.number);
+                    }
+                });
+                hasNextPage = searchResults.search.pageInfo.hasNextPage;
+                cursor = searchResults.search.pageInfo.endCursor;
+            }
         }
         return Array.from(relatedPRs);
     }
-    async getRelatedIssues(issueNum) {
-        const relatedIssues = new Set();
-        const { data: commits } = await this.octokit.rest.pulls.listCommits({
-            owner: this.owner,
-            repo: this.repo,
-            pull_number: issueNum
-        });
-        for (const commit of commits) {
-            const { data: searchResults } = await this.octokit.rest.search.issuesAndPullRequests({
-                q: `repo:${this.owner}/${this.repo} type:issue ${commit.sha}`
-            });
-            searchResults.items.forEach(issue => {
-                if (issue.number !== issueNum) {
-                    relatedIssues.add(issue.number);
+    /**
+     * Derives a list of Issues that are linked and closed by the provided Pull Request
+     * @param issueNum Number of the root PR
+     * @returns a list of related issues
+     */
+    async getLinkedIssues(issueNum) {
+        const linkedIssues = new Set();
+        let hasNextPage = true;
+        let cursor = null;
+        core.info(`Starting getLinkedIssues for PR #${issueNum}`);
+        while (hasNextPage) {
+            try {
+                const searchResults = await this.octokit.graphql(`
+          query {
+            repository(owner: "${this.owner}", name: "${this.repo}") {
+              pullRequest(number: ${issueNum}) {
+                closingIssuesReferences(first: 100 ${cursor ? `, after: "${cursor}"` : ''}) {
+                  pageInfo {
+                    hasNextPage
+                    endCursor
+                  }
+                  nodes {
+                    number
+                  }
                 }
-            });
+              }
+            }
+          }
+        `);
+                core.info('GraphQL response: ' + JSON.stringify(searchResults, null, 2));
+                const nodes = searchResults?.repository?.pullRequest?.closingIssuesReferences?.nodes;
+                if (!nodes || !Array.isArray(nodes)) {
+                    core.error('Invalid response structure: ' + JSON.stringify(searchResults));
+                    break;
+                }
+                nodes.forEach(issue => {
+                    if (issue && typeof issue.number === 'number') {
+                        core.info(`Found linked issue #${issue.number}`);
+                        linkedIssues.add(issue.number);
+                    }
+                });
+                hasNextPage = searchResults?.repository?.pullRequest?.closingIssuesReferences?.pageInfo?.hasNextPage ?? false;
+                cursor = searchResults?.repository?.pullRequest?.closingIssuesReferences?.pageInfo?.endCursor ?? null;
+            }
+            catch (error) {
+                core.error('Error in getLinkedIssues: ' + (error instanceof Error ? error.message : String(error)));
+                throw error;
+            }
         }
-        return Array.from(relatedIssues);
+        const result = Array.from(linkedIssues);
+        core.info('Found linked issues: ' + JSON.stringify(result));
+        return result;
     }
 }
 
@@ -31918,7 +31992,7 @@ async function run() {
         const maxIssueCount = parseInt(core.getInput("max-issue-count")) || 10;
         // Fetch and process related PRs
         const relatedPRs = await githubService.getRelatedPRs(prNumber);
-        const relatedIssues = await githubService.getRelatedIssues(prNumber);
+        const relatedIssues = await githubService.getLinkedIssues(prNumber);
         summaryService.setRelatedPRsCount(relatedPRs.length);
         console.trace("Related PRs found:", relatedPRs);
         console.trace("Related Issues found:", relatedIssues);
