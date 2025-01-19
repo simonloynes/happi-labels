@@ -141,36 +141,55 @@ export class GitHubService {
     let hasNextPage = true;
     let cursor: string | null = null;
 
+    console.log(`Starting getLinkedIssues for PR #${issueNum}`);
+    
     while (hasNextPage) {
-      const searchResults: PullRequestResponse = await this.octokit.graphql<PullRequestResponse>(`
-        query {
-          repository(owner: "${this.owner}", name: "${this.repo}") {
-            pullRequest(number: ${issueNum}) {
-              closingIssuesReferences(first: 100 ${cursor ? `, after: "${cursor}"` : ''}) {
-                pageInfo {
-                  hasNextPage
-                  endCursor
-                }
-                nodes {
-                  number
+      try {
+        const searchResults: { repository: PullRequestResponse['repository'] } = await this.octokit.graphql(`
+          query {
+            repository(owner: "${this.owner}", name: "${this.repo}") {
+              pullRequest(number: ${issueNum}) {
+                closingIssuesReferences(first: 100 ${cursor ? `, after: "${cursor}"` : ''}) {
+                  pageInfo {
+                    hasNextPage
+                    endCursor
+                  }
+                  nodes {
+                    number
+                  }
                 }
               }
             }
           }
+        `);
+
+        console.log('GraphQL response:', JSON.stringify(searchResults, null, 2));
+
+        // Safely access nested properties
+        const nodes = searchResults?.repository?.pullRequest?.closingIssuesReferences?.nodes;
+        if (!nodes || !Array.isArray(nodes)) {
+          console.error('Invalid response structure:', searchResults);
+          break;
         }
-      `);
 
-      console.log('GraphQL response for linked issues:', JSON.stringify(searchResults, null, 2));
+        nodes.forEach(issue => {
+          if (issue && typeof issue.number === 'number') {
+            linkedIssues.add(issue.number);
+          }
+        });
 
-      searchResults.repository.pullRequest.closingIssuesReferences.nodes.forEach(issue => {
-        linkedIssues.add(issue.number);
-      });
+        const pageInfo = searchResults?.repository?.pullRequest?.closingIssuesReferences?.pageInfo;
+        hasNextPage = pageInfo?.hasNextPage ?? false;
+        cursor = pageInfo?.endCursor ?? null;
 
-      hasNextPage = searchResults.repository.pullRequest.closingIssuesReferences.pageInfo.hasNextPage;
-      cursor = searchResults.repository.pullRequest.closingIssuesReferences.pageInfo.endCursor;
+      } catch (error) {
+        console.error('Error in getLinkedIssues:', error);
+        throw error;
+      }
     }
 
-    console.log('Final linked issues:', Array.from(linkedIssues));
-    return Array.from(linkedIssues);
+    const result = Array.from(linkedIssues);
+    console.log('Found linked issues:', result);
+    return result;
   }
 } 
